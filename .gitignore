@@ -53,5 +53,10 @@ logo-*-old.*
 logo-trimmed.*
 logo-web-old.*
 
+# ── OpenCode (herramienta de agente, no parte del proyecto) ─
+.opencode/bin/
+.opencode/node_modules/
+.opencode/package*.json
+
 # ── Stray duplicates ────────────────────────────────────
 backend/0007_push_subscriptions.py
