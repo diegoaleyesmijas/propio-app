@@ -1,6 +1,11 @@
 # ── Environment ──────────────────────────────────────────
+# Archivos .env reales que contienen claves secretas — NUNCA trackear
 .env
-.env.*
+.env.local
+.env.production
+.env.development
+.env.staging
+# .env.example SÍ se trackea — es la plantilla pública con placeholders
 
 # ── Python ───────────────────────────────────────────────
 __pycache__/
