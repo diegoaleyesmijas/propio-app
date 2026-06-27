@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#2F3542" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="CC Panel" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/propio-icon.svg" />
+    <link rel="apple-touch-icon" href="/logo-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              // PROPIO Brand — Verde PROPIO (#20B29C)
+              propio: {
+                50: '#e8f8f4',
+                100: '#c5ede4',
+                200: '#9ee0d2',
+                300: '#6ed1be',
+                400: '#45c5ae',
+                500: '#20B29C',
+                600: '#1a9a86',
+                700: '#14806f',
+                800: '#0e6659',
+                900: '#084c42',
+              },
+              // PROPIO Dark — Grafito profundo
+              dark: {
+                50: '#f4f5f7',
+                100: '#e3e4e8',
+                200: '#c5c8d0',
+                300: '#a3a7b3',
+                400: '#818697',
+                500: '#2F3542',
+                600: '#252a35',
+                700: '#1b1f28',
+                800: '#11141b',
+                900: '#070a0e',
+              },
+              // PROPIO Ivory — Marfil (fondos)
+              ivory: {
+                DEFAULT: '#F6F3EE',
+                dark: '#e8e3da',
+              },
+              // Legacy brand map (para compatibilidad con código antiguo)
+              brand: {
+                50: '#e8f8f4',
+                100: '#c5ede4',
+                500: '#20B29C',
+                600: '#1a9a86',
+                700: '#14806f',
+                900: '#084c42',
+              }
+            },
+            fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+          }
+        }
+      }
+    </script>
+    <style>
+      .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+      @keyframes slideDown { from { transform: translateY(-120%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      .animate-slideDown { animation: slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      .animate-fadeIn { animation: fadeIn 0.2s ease-out; }
+      @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+      .animate-fadeInUp { animation: fadeInUp 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
+      @keyframes shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+      .animate-shake { animation: shake 0.4s ease-out; }
+      @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+      .animate-slide-in { animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+      .sidebar-transition { transition: width 0.25s ease; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      /* DayView grid transitions */
+      .appt-enter { animation: fadeIn 0.2s ease-out; }
+      .timeline-grid { scroll-behavior: smooth; }
+      /* Selection / tap highlight reset */
+      * { -webkit-tap-highlight-color: transparent; }
+
+      /* ── Splash screen (visible while React loads) ── */
+      #splash {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        background: linear-gradient(160deg, #F6F3EE 0%, #f0ece4 100%);
+        transition: opacity 0.5s ease, visibility 0.5s ease;
+      }
+      #splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+      #splash img { width: 56px; height: 56px; opacity: 0.8; animation: splashPulse 1.8s ease-in-out infinite; }
+      #splash .splash-brand { margin-top: 16px; font-size: 18px; font-weight: 800; color: #2F3542; letter-spacing: -0.02em; }
+      #splash .splash-sub { margin-top: 4px; font-size: 11px; color: #a8a29e; letter-spacing: 0.04em; font-weight: 500; }
+      #splash .splash-dots { margin-top: 24px; display: flex; gap: 6px; }
+      #splash .splash-dots span {
+        width: 6px; height: 6px; border-radius: 50%; background: #20B29C;
+        animation: splashDot 1.4s ease-in-out infinite;
+      }
+      #splash .splash-dots span:nth-child(2) { animation-delay: 0.2s; }
+      #splash .splash-dots span:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes splashPulse {
+        0%, 100% { opacity: 0.6; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.08); }
+      }
+      @keyframes splashDot {
+        0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+        40% { transform: scale(1); opacity: 1; }
+      }
+
+      /* ── PROPIO Design Tokens ── */
+      :root {
+        --color-propio-50: #e8f8f4;
+        --color-propio-100: #c5ede4;
+        --color-propio-200: #9ee0d2;
+        --color-propio-300: #6ed1be;
+        --color-propio-400: #45c5ae;
+        --color-propio-500: #20B29C;
+        --color-propio-600: #1a9a86;
+        --color-propio-700: #14806f;
+        --color-propio-800: #0e6659;
+        --color-propio-900: #084c42;
+        --color-dark-500: #2F3542;
+        --color-dark-600: #252a35;
+        --color-dark-700: #1b1f28;
+        --color-ivory: #F6F3EE;
+        --color-ivory-dark: #e8e3da;
+      }
+    </style>
+    <title>Código de Caballeros · Panel</title>
+  </head>
+  <body class="bg-ivory text-dark-500 antialiased">
+    <div id="splash">
+      <img src="/propio-icon.svg" alt="" />
+      <div class="splash-brand">Código de Caballeros</div>
+      <div class="splash-sub">Powered by PROPIO</div>
+      <div class="splash-dots"><span></span><span></span><span></span></div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/admin.js?v=7"></script>
+    <script>
+      // Hide splash once React has had time to mount (smooth fade-out)
+      window.addEventListener('load', () => {
+        requestAnimationFrame(() => {
+          setTimeout(() => document.getElementById('splash')?.classList.add('hidden'), 350)
+        })
+      })
+      // ── Service Worker registration for Web Push ──
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('[SW] Registered:', reg.scope))
+            .catch(err => console.warn('[SW] Registration failed:', err))
+        })
+      }
+    </script>
+  </body>
+</html>

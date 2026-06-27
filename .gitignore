@@ -1,0 +1,52 @@
+# ── Environment ──────────────────────────────────────────
+.env
+.env.*
+
+# ── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+
+# ── Node ─────────────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+
+# ── Docker ───────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── OS ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ── Logs ─────────────────────────────────────────────────
+*.log
+
+# ── IDE ──────────────────────────────────────────────────
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# ── Generated / Local artifacts ─────────────────────────
+test_artifacts/
+*.url
+*.desktop
+.opencode-recovery/
+
+# ── Old logo variants (kept for reference, not tracked) ─
+logo-*-old.*
+logo-trimmed.*
+logo-web-old.*
+
+# ── Stray duplicates ────────────────────────────────────
+backend/0007_push_subscriptions.py

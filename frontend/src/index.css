@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    @apply h-full;
+  }
+  body {
+    @apply bg-stone-50 text-stone-900 antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  input, button, select, textarea {
+    @apply font-sans;
+  }
+}
+
+@layer components {
+  .pill {
+    @apply px-4 py-3 rounded-2xl text-sm font-semibold transition-all active:scale-95;
+  }
+  .pill-primary {
+    @apply pill bg-brand-600 text-white shadow-lg shadow-brand-600/20 hover:bg-brand-700;
+  }
+  .pill-outline {
+    @apply pill bg-white border border-stone-200 text-stone-700 hover:border-brand-500;
+  }
+  .pill-active {
+    @apply pill bg-brand-600 text-white shadow-md;
+  }
+  .input {
+    @apply w-full px-4 py-4 rounded-2xl bg-white border border-stone-200 text-base
+           focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20
+           placeholder:text-stone-400 transition;
+  }
+  .card {
+    @apply bg-white rounded-3xl p-5 shadow-sm border border-stone-100;
+  }
+}

@@ -1,0 +1,68 @@
+# docker-compose.yml — Producción para Hostinger VPS
+# Arranca: PostgreSQL + Backend FastAPI + Nginx reverse proxy
+# Solo expone puertos 80 y 443 (nginx)
+version: '3.8'
+
+services:
+  # ── PostgreSQL ──
+  db:
+    image: postgres:15
+    container_name: barber-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: barberapp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Backend FastAPI ──
+  backend:
+    build: ./backend
+    container_name: barber-backend
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@db:5432/barberapp
+      FRONTEND_URL: ${FRONTEND_URL:-https://localhost}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-CONTRASENA_REEMPLAZADA_ROTACION_20260627}
+      JWT_SECRET: ${JWT_SECRET:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://localhost}
+      RATE_LIMIT_BOOK: ${RATE_LIMIT_BOOK:-5/minute}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-"Código de Caballeros Salon <barberia@ejemplo.com>"}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-admin@codigodecaballeros.site}
+      ADMIN_PANEL_URL: ${ADMIN_PANEL_URL:-https://codigodecaballeros.site/admin.html}
+    # No exponemos puerto: solo accesible desde nginx
+
+  # ── Nginx reverse proxy + static files ──
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: barber-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

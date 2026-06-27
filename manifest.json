@@ -1,0 +1,26 @@
+{
+  "name": "Código de Caballeros · Panel",
+  "short_name": "CC Panel",
+  "description": "Panel de gestión para Código de Caballeros Salon",
+  "start_url": "/admin.html",
+  "display": "standalone",
+  "scope": "/",
+  "background_color": "#F6F3EE",
+  "theme_color": "#20B29C",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business"]
+}
