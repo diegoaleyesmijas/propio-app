@@ -5,7 +5,7 @@ Mobile-first, bilingüe (ES/EN), con panel administrador completo.
 Construido como base replicable para nuevas barberías.
 
 🌐 **Producción:** [https://codigodecaballeros.site](https://codigodecaballeros.site)  
-👤 **Admin:** `/admin.html` (login: `admin` / `CONTRASENA_REEMPLAZADA_ROTACION_20260627`)  
+👤 **Admin:** `/admin.html` (login configurado en `.env`)  
 📖 **API Docs:** `/docs`
 
 ---
@@ -350,7 +350,7 @@ Ver `.env.example` para template completo.
 | `APP_ENV`                   | No          | `development`                                            | `production` o `development`        |
 | `FRONTEND_URL`              | Sí          | `http://localhost:5173`                                  | URL del frontend (para emails)      |
 | `ADMIN_USERNAME`            | Sí          | `admin`                                                  | Usuario login admin                 |
-| `ADMIN_PASSWORD`            | Sí          | `CONTRASENA_REEMPLAZADA_ROTACION_20260627`                                       | Contraseña login admin              |
+| `ADMIN_PASSWORD`            | Sí          | *(sin default — requerida)*                               | Contraseña login admin              |
 | `JWT_SECRET`                | Sí          | `change-me-in-production`                                | Secreto para firmar JWT             |
 | `JWT_ALGORITHM`             | No          | `HS256`                                                  | Algoritmo JWT                       |
 | `JWT_EXPIRY_HOURS`          | No          | `24`                                                     | Duración del token                  |
@@ -877,7 +877,7 @@ curl -sk https://codigodecaballeros.site/services
 curl -sk https://codigodecaballeros.site/admin/summary?date=$(date +%Y-%m-%d) \
   -H "Authorization: Bearer $(curl -sk -X POST https://codigodecaballeros.site/admin/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"CONTRASENA_REEMPLAZADA_ROTACION_20260627"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')"
+   -d '{"username":"admin","password":"'$ADMIN_PASSWORD'"}' | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])')"
 ```
 
 ---
@@ -945,7 +945,7 @@ curl -H "X-API-Key: admin123" http://localhost:8000/admin/summary?date=2026-06-2
 # AHORA (JWT)
 JWT=$(curl -s -X POST http://localhost:8000/admin/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"CONTRASENA_REEMPLAZADA_ROTACION_20260627"}' \
+  -d '{"username":"admin","password":"'$ADMIN_PASSWORD'"}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 curl -H "Authorization: Bearer $JWT" \
   http://localhost:8000/admin/summary?date=2026-06-26

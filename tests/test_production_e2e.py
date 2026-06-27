@@ -19,8 +19,8 @@ from urllib.parse import urlparse
 # ─── Configuration ───────────────────────────────────────────────────────────
 BASE = "https://codigodecaballeros.site"
 HTTP_BASE = "http://codigodecaballeros.site"
-ADMIN_USER = "admin"
-ADMIN_PASS = "CONTRASENA_REEMPLAZADA_ROTACION_20260627"
+ADMIN_USER = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASS = os.environ.get("ADMIN_PASSWORD", "test-admin-password-for-dev-only")
 TEST_PREFIX = "E2E_TEST"
 
 # Session with connection pooling

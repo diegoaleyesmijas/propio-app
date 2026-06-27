@@ -1,4 +1,5 @@
 import secrets
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 from datetime import time
 from zoneinfo import ZoneInfo
@@ -34,7 +35,7 @@ class Settings(BaseSettings):
 
     # Admin login credentials (for JWT-based auth)
     ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str = "CONTRASENA_REEMPLAZADA_ROTACION_20260627"
+    ADMIN_PASSWORD: str = ""  # ⚠️ NO DEFAULT — must be set via .env or env var. App fails if empty.
 
     # JWT secret. If not set via env var, generates a random one (invalidates tokens on restart).
     JWT_SECRET: str = secrets.token_urlsafe(32)
@@ -68,6 +69,15 @@ class Settings(BaseSettings):
     VAPID_CLAIM_EMAIL: str = "admin@codigodecaballeros.site"
     # Endpoint que muestra la notificación push al admin (se abre al tocarla)
     ADMIN_PANEL_URL: str = "https://codigodecaballeros.site/admin.html"
+
+    @model_validator(mode='after')
+    def _require_admin_password(self):
+        if not self.ADMIN_PASSWORD:
+            raise ValueError(
+                "ADMIN_PASSWORD is required. "
+                "Set it via .env file or ADMIN_PASSWORD environment variable."
+            )
+        return self
 
     class Config:
         env_file = ".env"

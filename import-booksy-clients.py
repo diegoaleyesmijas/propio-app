@@ -36,9 +36,9 @@ import urllib.request
 import urllib.error
 
 # ── Configuración ──
-API_BASE = "https://codigodecaballeros.site"
-ADMIN_USER = "admin"
-ADMIN_PASS = "CONTRASENA_REEMPLAZADA_ROTACION_20260627"
+API_BASE = os.environ.get("API_BASE_URL", "https://codigodecaballeros.site")
+ADMIN_USER = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASS = os.environ.get("ADMIN_PASSWORD", "test-admin-password-for-dev-only")
 
 # Sinónimos de columnas en español/inglés
 COL_NOMBRE = ["nombre", "name", "client name", "cliente", "full name", "nombre completo"]

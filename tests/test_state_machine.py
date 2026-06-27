@@ -16,14 +16,15 @@ Run:
   /home/nx-digital/venv/bin/python -m pytest tests/test_state_machine.py -v --tb=short
 """
 
+import os
 import uuid
 import pytest
 import requests
 from datetime import datetime, timezone, timedelta
 
 BASE = "http://localhost:8000"
-ADMIN_USER = "admin"
-ADMIN_PASS = "CONTRASENA_REEMPLAZADA_ROTACION_20260627"
+ADMIN_USER = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASS = os.environ.get("ADMIN_PASSWORD", "test-admin-password-for-dev-only")
 TEST_PREFIX = "TEST_SM"
 
 session = requests.Session()

@@ -5,6 +5,7 @@
 #        http://localhost:8000 (dev local)
 
 BASE="${1:-https://codigodecaballeros.site}"
+ADMIN_PASS="${ADMIN_PASSWORD:?ADMIN_PASSWORD env var required — set it before running: export ADMIN_PASSWORD=tu-contraseña}"
 TODAY=$(date +%Y-%m-%d)
 
 echo "🌱 Sembrando datos de prueba en $BASE"
@@ -14,7 +15,7 @@ echo ""
 get_jwt() {
   curl -s -X POST "$BASE/admin/login" \
     -H "Content-Type: application/json" \
-    -d '{"username":"admin","password":"CONTRASENA_REEMPLAZADA_ROTACION_20260627"}' \
+    -d "{\"username\":\"admin\",\"password\":\"${ADMIN_PASS}\"}" \
     | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])"
 }
 JWT=$(get_jwt)
@@ -120,7 +121,7 @@ echo "📌 URLs para testear:"
 echo ""
 echo "  🌐 PANEL ADMIN (barbero)"
 echo "     → $BASE/admin.html"
-echo "     → Usuario: admin  /  Contraseña: CONTRASENA_REEMPLAZADA_ROTACION_20260627"
+echo "     → Usuario: admin  /  Contraseña: (la del .env)"
 echo ""
 echo "  📋 RESERVAS PÚBLICO (clientes)"
 echo "     → $BASE/"
@@ -141,7 +142,7 @@ echo "  # Ver slots disponibles para Corte hoy:"
 echo "  curl -s \"$BASE/available-slots?service_id=1&date=$TODAY\""
 echo ""
 echo "  # Obtener token JWT primero:"
-echo "  JWT=\$(curl -s -X POST \"\$BASE/admin/login\" -H \"Content-Type: application/json\" -d '{\"username\":\"admin\",\"password\":\"CONTRASENA_REEMPLAZADA_ROTACION_20260627\"}' | python3 -c \"import sys,json; print(json.load(sys.stdin)['access_token'])\")"
+  echo '  JWT=$(curl -s -X POST "$BASE/admin/login" -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"'$ADMIN_PASS'\"}" | python3 -c "import sys,json; print(json.load(sys.stdin)[\"access_token\"])")'
 echo "  AUTH=\"Authorization: Bearer \$JWT\""
 echo ""
 echo "  # Ver resumen de hoy (admin):"

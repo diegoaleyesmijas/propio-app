@@ -19,9 +19,9 @@ from datetime import datetime, timezone, timedelta, date
 import requests
 
 # ── Config ──────────────────────────────────────────────────────────
-BASE_URL = "https://codigodecaballeros.site"
-USERNAME = "admin"
-PASSWORD = "CONTRASENA_REEMPLAZADA_ROTACION_20260627"
+BASE_URL = os.environ.get("E2E_BASE_URL", "https://codigodecaballeros.site")
+USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+PASSWORD = os.environ.get("ADMIN_PASSWORD", "test-admin-password-for-dev-only")
 RESULTS = []
 SCREENSHOTS = []
 

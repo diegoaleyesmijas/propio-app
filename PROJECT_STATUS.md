@@ -157,7 +157,7 @@ Ejecutando 8 fases priorizadas. Progreso:
 | URL | Proposito | Acceso |
 |---|---|---|
 | `https://codigodecaballeros.site/` | Pagina publica de reservas | Clientes |
-| `https://codigodecaballeros.site/admin.html` | Panel de administracion | Barbero (login: admin / CONTRASENA_REEMPLAZADA_ROTACION_20260627) |
+| `https://codigodecaballeros.site/admin.html` | Panel de administracion | Barbero (login configurado en .env) |
 | `https://codigodecaballeros.site/docs` | Documentacion API OpenAPI | Tecnico |
 
 ---
@@ -219,7 +219,7 @@ Ejecutando 8 fases priorizadas. Progreso:
 
 ```
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=CONTRASENA_REEMPLAZADA_ROTACION_20260627
+ADMIN_PASSWORD=<REEMPLAZAR_EN_PRODUCCION>
 JWT_SECRET=cambiar-en-produccion
 RATE_LIMIT_BOOK=5/minute
 ```

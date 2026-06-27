@@ -34,7 +34,7 @@ services:
       DATABASE_URL: postgresql://postgres:${DB_PASSWORD:-postgres}@db:5432/barberapp
       FRONTEND_URL: ${FRONTEND_URL:-https://localhost}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-CONTRASENA_REEMPLAZADA_ROTACION_20260627}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required — set it in .env}
       JWT_SECRET: ${JWT_SECRET:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://localhost}
       RATE_LIMIT_BOOK: ${RATE_LIMIT_BOOK:-5/minute}
