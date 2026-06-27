@@ -1,6 +1,6 @@
 # PROJECT_STATUS.md — Barber Booking MVP
 
-> Estado actual del proyecto. Ultima actualizacion: 2026-06-26
+> Estado actual del proyecto. Ultima actualizacion: 2026-06-27
 
 ---
 
@@ -308,6 +308,32 @@ ADMIN_PANEL_URL=https://codigodecaballeros.site/admin.html
 
 ---
 
+## Credenciales rotadas (2026-06-27) — P0 urgente
+
+**Riesgo:** La contraseña admin `CONTRASENA_REEMPLAZADA_ROTACION_20260627` estaba hardcodeada en 13 archivos y commitada en el historial de git.
+
+**Corrección en código (11 archivos):**
+- `config.py`: `ADMIN_PASSWORD` sin default + `@model_validator` que falla si está vacía
+- `docker-compose.yml`: `${ADMIN_PASSWORD:-pass}` → `${ADMIN_PASSWORD:?required}`
+- Todos los tests y scripts: leen de `ADMIN_PASSWORD` env var
+- Documentación: toda referencia a la contraseña real eliminada
+
+**Rotación en producción (VPS Hostinger):**
+- `ADMIN_PASSWORD` → generada nueva (openssl rand -base64 18)
+- `JWT_SECRET` → generado nuevo (openssl rand -base64 32)
+- `RESET_DEMO_ALLOWED` → false
+- `ADMIN_API_KEY` → eliminado (dead code, Fase 1)
+- Backup del .env anterior creado
+
+**Verificación:**
+| Prueba | Resultado |
+|---|---|
+| Login con nueva contraseña | ✅ 200 (JWT emitido) |
+| Login con contraseña antigua | ✅ 401 (rechazado) |
+| Admin endpoint con nuevo token | ✅ 200 (7 citas upcoming) |
+| API pública | ✅ 200 (services, demo.html, admin.html) |
+| Backend logs (sin errores) | ✅ migrations OK, Uvicorn running |
+
 ## Decisiones tomadas (no reabrir)
 
 - **2026-06-09**: Brand "Codigo de Caballeros Salon" en toda la UI.
@@ -317,13 +343,14 @@ ADMIN_PANEL_URL=https://codigodecaballeros.site/admin.html
 - **2026-06-15**: Notificaciones con polling + toast + auto-refresh de vistas activas.
 - **2026-06-16**: Notificaciones cargan ultimas 24h en primera carga (no solo futuro).
 - **2026-06-16**: Boton "Soy nuevo" tanto en formulario publico como en modal admin.
+- **2026-06-27**: ADMIN_PASSWORD sin default en código — obligatorio via .env. Docker falla si falta.
 
 ---
 
 ## Deudas tecnicas conocidas
 
 - Rate limit en memoria (slowapi): no escala a multiples instancias. Migrar a Redis si crece.
-- JWT_SECRET hardcodeado en .env para desarrollo. Cambiar en produccion.
+- ~~JWT_SECRET hardcodeado en .env para desarrollo.~~ ✅ Rotado en producción (2026-06-27).
 - Auth admin basica (usuario fijo + JWT): suficiente para MVP. Migrar a registro/login si hay multiples admins.
 - Frontend sin build tool: archivos estaticos servidos directamente con nginx. Funciona, pero no hay tree-shaking ni minificacion.
 - Sin pruebas automatizadas E2E (aunque el proyecto tiene capacidad para pytest + Chrome headless).
@@ -336,5 +363,6 @@ ADMIN_PANEL_URL=https://codigodecaballeros.site/admin.html
 
 1. Hablar con el barbero para ajustar detalles de UX y operación diaria
 2. Configurar SMTP real para envío de emails transaccionales
-3. Cambiar JWT_SECRET por un valor seguro
+3. ~~Cambiar JWT_SECRET por un valor seguro~~ ✅ Rotado
 4. Entrega formal del producto
+5. **Limpieza de historial git** — El commit inicial (`33556fd`) contiene la contraseña antigua. Usar `git filter-repo` para eliminarla del historial completo.
