@@ -310,7 +310,7 @@ ADMIN_PANEL_URL=https://codigodecaballeros.site/admin.html
 
 ## Credenciales rotadas (2026-06-27) — P0 urgente
 
-**Riesgo:** La contraseña admin `CONTRASENA_REEMPLAZADA_ROTACION_20260627` estaba hardcodeada en 13 archivos y commitada en el historial de git.
+**Riesgo:** La contraseña admin (valor comprometido, ya rotado) estaba hardcodeada en 13 archivos y commitada en el historial de git.
 
 **Corrección en código (11 archivos):**
 - `config.py`: `ADMIN_PASSWORD` sin default + `@model_validator` que falla si está vacía
