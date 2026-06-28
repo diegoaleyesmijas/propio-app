@@ -824,10 +824,12 @@ const DetailModal = React.memo(function DetailModal({ appt, onClose, onComplete,
 })
 
 function StatCard({ label, value, sub }) {
-  return h('div', { className: 'bg-white rounded-2xl p-3 border border-stone-200 shadow-sm' },
-    h('p', { className: 'text-[10px] font-bold uppercase tracking-wider text-stone-500' }, label),
-    h('p', { className: 'text-2xl font-extrabold text-stone-900 mt-0.5' }, value),
-    sub && h('p', { className: 'text-[11px] text-stone-400 mt-0.5' }, sub)
+  return h('div', { className: 'rounded-2xl p-[1.5px] bg-stone-100/80' },
+    h('div', { className: 'bg-white rounded-[calc(2rem-1.5px)] p-3 border border-stone-200/60 shadow-sm' },
+      h('p', { className: 'text-[10px] font-bold uppercase tracking-wider text-stone-500' }, label),
+      h('p', { className: 'text-2xl font-extrabold text-stone-900 mt-0.5' }, value),
+      sub && h('p', { className: 'text-[11px] text-stone-400 mt-0.5' }, sub)
+    )
   )
 }
 
@@ -844,13 +846,16 @@ function KpiCard({ label, value, unit, trend, color, action, actionLabel, icon, 
   const c = colorMap[color] || colorMap.stone
 
   return h('div', {
-    className: 'bg-white rounded-2xl border border-stone-200 shadow-sm p-3 sm:p-4 min-h-[116px] flex flex-col justify-between ' +
-      (onCardClick ? 'cursor-pointer hover:border-stone-300 hover:shadow-md transition-all active:scale-[0.98]' : ''),
+    className: 'rounded-[1.75rem] p-[1.5px] ' + (onCardClick ? 'cursor-pointer' : ''),
     onClick: onCardClick,
     role: onCardClick ? 'button' : undefined,
     tabIndex: onCardClick ? 0 : undefined,
     onKeyDown: onCardClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onCardClick() } } : undefined
   },
+    h('div', {
+      className: 'bg-white rounded-[calc(1.75rem-1.5px)] border border-stone-200/60 shadow-sm p-3 sm:p-4 min-h-[116px] flex flex-col justify-between ' +
+        (onCardClick ? 'hover:border-stone-300 hover:shadow-md transition-all' : ''),
+    },
     h('div', { className: 'flex items-start justify-between gap-3' },
       h('div', { className: 'min-w-0' },
         h('p', { className: 'text-[10px] font-bold text-stone-500 uppercase tracking-wider truncate' }, label),
@@ -873,6 +878,7 @@ function KpiCard({ label, value, unit, trend, color, action, actionLabel, icon, 
         className: `text-xs font-bold ${c.text} hover:underline underline-offset-4 transition`
       }, actionLabel)
     )
+  )
   )
 }
 

@@ -135,25 +135,28 @@ function Header({ step, onBack }) {
 }
 
 function ServiceCard({ service, selected, onClick }) {
-  return React.createElement('button',
-    {
-      onClick,
-      className: `card w-full text-left flex items-center gap-4 transition-all active:scale-[0.98] ${selected ? 'ring-2 ring-propio-500 border-propio-500' : ''}`
+  return React.createElement('div', {
+    onClick,
+    className: `rounded-[1.75rem] p-[1.5px] cursor-pointer transition-all active:scale-[0.98] ${selected ? 'bg-propio-500/20 ring-2 ring-propio-500' : 'bg-stone-100/80 hover:bg-stone-200/80'}`
+  },
+    React.createElement('div', {
+      className: 'w-full flex items-center gap-4 bg-white rounded-[calc(1.75rem-1.5px)] p-4 shadow-sm border border-stone-200/50'
     },
-    React.createElement('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '1.5', strokeLinecap: 'round', strokeLinejoin: 'round', className: 'w-6 h-6' },
-      React.createElement('circle', { cx: '6', cy: '6', r: '3' }),
-      React.createElement('path', { d: 'M8.12 8.12 12 12' }),
-      React.createElement('path', { d: 'M20 4 8.12 15.88' }),
-      React.createElement('circle', { cx: '6', cy: '18', r: '3' }),
-      React.createElement('path', { d: 'M14.8 14.8 20 20' })
-    ),
-    React.createElement('div', { className: 'flex-1 min-w-0' },
-      React.createElement('h3', { className: 'font-bold text-base truncate' }, service.name),
-      React.createElement('p', { className: 'text-sm text-stone-500' }, t('template.duration_min', service.duration_minutes))
-    ),
-    React.createElement('div', { className: 'text-right' },
-      React.createElement('p', { className: 'text-lg font-bold text-propio-700' }, `${service.price}€`),
-      React.createElement('p', { className: 'text-[10px] uppercase tracking-wider text-stone-400' }, t('booking.iva_incl'))
+      React.createElement('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '1.5', strokeLinecap: 'round', strokeLinejoin: 'round', className: 'w-6 h-6 text-stone-400' },
+        React.createElement('circle', { cx: '6', cy: '6', r: '3' }),
+        React.createElement('path', { d: 'M8.12 8.12 12 12' }),
+        React.createElement('path', { d: 'M20 4 8.12 15.88' }),
+        React.createElement('circle', { cx: '6', cy: '18', r: '3' }),
+        React.createElement('path', { d: 'M14.8 14.8 20 20' })
+      ),
+      React.createElement('div', { className: 'flex-1 min-w-0' },
+        React.createElement('h3', { className: 'font-bold text-base truncate text-stone-900' }, service.name),
+        React.createElement('p', { className: 'text-sm text-stone-500' }, t('template.duration_min', service.duration_minutes))
+      ),
+      React.createElement('div', { className: 'text-right' },
+        React.createElement('p', { className: 'text-lg font-bold text-propio-700' }, `${service.price}€`),
+        React.createElement('p', { className: 'text-[10px] uppercase tracking-wider text-stone-400' }, t('booking.iva_incl'))
+      )
     )
   )
 }
@@ -228,9 +231,11 @@ function BookingForm({ initial, summary, loading, error, onSubmit }) {
     },
     className: 'space-y-4'
   },
-    React.createElement('div', { className: 'card bg-propio-50 border-propio-100' },
-      React.createElement('p', { className: 'text-xs uppercase tracking-wider text-propio-800 font-semibold' }, t('form.summary')),
-      React.createElement('p', { className: 'text-base font-bold text-dark-500 mt-1' }, summary)
+    React.createElement('div', { className: 'rounded-2xl p-[1.5px] bg-propio-500/15' },
+      React.createElement('div', { className: 'rounded-[calc(2rem-1.5px)] bg-propio-50 px-4 py-3.5 border border-propio-100/50' },
+        React.createElement('p', { className: 'text-xs uppercase tracking-wider text-propio-800 font-semibold' }, t('form.summary')),
+        React.createElement('p', { className: 'text-base font-bold text-dark-500 mt-1' }, summary)
+      )
     ),
     field(t('form.name'), 'name', 'text', t('form.name_ph'), initial?.customer_name, true),
     field(t('form.phone'), 'phone', 'tel', t('form.phone_ph'), initial?.customer_phone, true),
@@ -260,8 +265,19 @@ function BookingForm({ initial, summary, loading, error, onSubmit }) {
       )
     ),
     error && React.createElement('div', { className: 'bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3' }, error),
-    React.createElement('button', { type: 'submit', disabled: loading, className: 'pill-primary w-full text-base py-4 disabled:opacity-50' },
-      loading ? t('form.loading') : t('form.submit')),
+    React.createElement('button', { type: 'submit', disabled: loading, className: 'w-full py-4 rounded-xl bg-propio-500 text-white font-bold text-base shadow-[0_8px_24px_rgba(32,178,156,0.25)] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] hover:bg-propio-600 hover:shadow-[0_10px_30px_rgba(32,178,156,0.35)] cursor-pointer' },
+      loading
+        ? t('form.loading')
+        : React.createElement('span', { className: 'flex items-center justify-center gap-2.5' },
+            React.createElement('span', null, t('form.submit')),
+            React.createElement('span', { className: 'w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-sm' },
+              React.createElement('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2.5', strokeLinecap: 'round', strokeLinejoin: 'round', className: 'w-4 h-4' },
+                React.createElement('line', { x1: '5', y1: '12', x2: '19', y2: '12' }),
+                React.createElement('polyline', { points: '12 5 19 12 12 19' })
+              )
+            )
+          )
+    ),
     React.createElement('p', { className: 'text-center text-xs text-stone-400' }, t('form.disclaimer'))
   )
 }
@@ -498,8 +514,18 @@ function App() {
       React.createElement('div', { className: 'max-w-md mx-auto px-5 py-3' },
         React.createElement('button', {
           onClick: () => setStep('form'),
-          className: 'w-full py-3 rounded-xl bg-propio-500 hover:bg-propio-600 text-white text-base font-bold active:scale-[0.98] transition shadow-lg cursor-pointer'
-        }, t('booking.continue'))
+          className: 'w-full py-3 rounded-xl bg-propio-500 hover:bg-propio-600 text-white text-base font-bold active:scale-[0.98] transition-all shadow-lg cursor-pointer group'
+        },
+          React.createElement('span', { className: 'flex items-center justify-center gap-2.5' },
+            React.createElement('span', null, t('booking.continue')),
+            React.createElement('span', { className: 'w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs group-hover:translate-x-0.5 transition-transform' },
+              React.createElement('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2.5', strokeLinecap: 'round', strokeLinejoin: 'round', className: 'w-3.5 h-3.5' },
+                React.createElement('line', { x1: '5', y1: '12', x2: '19', y2: '12' }),
+                React.createElement('polyline', { points: '12 5 19 12 12 19' })
+              )
+            )
+          )
+        )
       )
     )
   )

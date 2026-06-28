@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="/logo-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -62,7 +62,7 @@
                 900: '#084c42',
               }
             },
-            fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+            fontFamily: { sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'] }
           }
         }
       }
@@ -116,6 +116,10 @@
         40% { transform: scale(1); opacity: 1; }
       }
 
+      /* ── Premium transitions ── */
+      .premium-ease { transition: all 0.35s cubic-bezier(0.32, 0.72, 0, 1); }
+      .premium-ease-slow { transition: all 0.5s cubic-bezier(0.32, 0.72, 0, 1); }
+
       /* ── PROPIO Design Tokens ── */
       :root {
         --color-propio-50: #e8f8f4;
@@ -138,6 +142,8 @@
     <title>Código de Caballeros · Panel</title>
   </head>
   <body class="bg-ivory text-dark-500 antialiased">
+    <!-- Ambient grain (fixed depth layer) -->
+    <div style="position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(ellipse at 25% 30%,rgba(32,178,156,0.025) 0%,transparent 55%),radial-gradient(ellipse at 75% 70%,rgba(47,53,66,0.012) 0%,transparent 55%)"></div>
     <div id="splash">
       <img src="/propio-icon.svg" alt="" />
       <div class="splash-brand">Código de Caballeros</div>
@@ -145,7 +151,8 @@
       <div class="splash-dots"><span></span><span></span><span></span></div>
     </div>
     <div id="root"></div>
-    <script type="module" src="/admin.js?v=7"></script>
+    <script>window.API_BASE = 'http://localhost:8000'</script>
+    <script type="module" src="/admin.js?v=8"></script>
     <script>
       // Hide splash once React has had time to mount (smooth fade-out)
       window.addEventListener('load', () => {

@@ -1,89 +1,98 @@
 # AGENTS.md — Barber Booking MVP
 
-## Resumen del proyecto
-Sistema de reservas mobile-first para barberia/salon single-barber ("Codigo de Caballeros Salon").
-Stack: FastAPI + PostgreSQL + SQLModel (backend), React 18 CDN ESM + Tailwind (frontend).
-El frontend real son 4 archivos estaticos (demo.html, admin.html, demo.js, admin.js) mas i18n.js compartido. No usa Vite como build activo.
+High-signal guidance for OpenCode agents working in this repo.
+Every line exists because an agent would likely miss or waste time on it without help.
 
-## Fase actual: mejora por fases (Plan 8 fases, Fase 1/8 completada)
-El proyecto está ejecutando un plan de 8 fases priorizadas:
-- ✅ **Fase 1 (P0-2)**: Eliminar fallback inseguro de API key → solo JWT
-- ✅ **Fase 2 (P0-4)**: Reset de datos demo (is_demo flag + POST /admin/reset-demo + botón admin)
-- ✅ **Fase 3 (P0-1 + P1-2)**: Agenda Día usable (citas clicables + jerarquía visual + modal detalle + is_first_booking en /summary)
-- ⏳ **Fase 4 (P0-3)**: Navegación de fecha unificada + botón "Hoy"
-- ⏳ **Fase 5 (P1-1)**: Jerarquía de marca en header
-- ⏳ **Fase 6 (P1-4)**: Contexto claro en navegación móvil
-- ⏳ **Fase 7 (P1-3)**: Fuente de verdad única de ingresos
-- ⏳ **Fase 8 (P2-1)**: Pulido de login/splash
+---
 
-Ver `PROJECT_STATUS.md` para detalle de cada fase completada.
+## Before anything: read the rules file
 
-## Archivos clave
+`.opencode/rules/booking-logic.md` is auto-loaded by `opencode.json` as instructions.
+It contains **system invariants** (state machine, DB constraint, notification fields, cancellation window).
+Read it before editing any backend or frontend code — it overrides assumptions.
 
+---
+
+## What makes this repo unusual
+
+- **Real frontend is 5 static files at the project root:** `demo.html`, `demo.js`, `admin.html`, `admin.js`, `i18n.js`. These are served directly by nginx in production. No build step, no bundler.
+- **The `frontend/` directory exists with a Vite + React + JSX setup but is NOT used in production.** Editing it does nothing for the running app.
+- **Python venv is at `/home/nx-digital/venv/`** (outside the project). All Python commands must use absolute path ` /home/nx-digital/venv/bin/<tool>` or activate it first.
+- **Auth is JWT-only.** API Key fallback was removed (`auth.py` has only JWT). `POST /admin/login` → JWT → `Authorization: Bearer <token>`.
+- **Reservations use raw SQL** with `tstzrange` and `EXCLUDE USING GIST`. Never construct `Appointment(slot=...)` from the ORM — the `slot` column is a TSTZRANGE managed by the DB constraint.
+- **7 Alembic migrations** (0001–0007). Always run `alembic upgrade head` before testing.
+- **Production static files are baked into the Docker nginx image.** Editing `admin.js` or `admin.html` requires `docker compose build nginx && docker compose up -d` to see changes in production.
+
+---
+
+## Developer commands (exact)
+
+```bash
+# Backend (venv external to project)
+cd /home/nx-digital/barber-app/backend
+/home/nx-digital/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Run migrations
+/home/nx-digital/venv/bin/alembic upgrade head
+
+# Serve frontend static files (no Node needed)
+cd /home/nx-digital/barber-app
+python3 -m http.server 5173
+
+# Run tests (backend must be running on :8000)
+/home/nx-digital/venv/bin/python -m pytest tests/ -v
+
+# Verify JS ESM syntax (catches silent blank-page bugs)
+node --input-type=module --check admin.js
+
+# Production deploy (from VPS)
+docker compose build backend nginx && docker compose up -d
 ```
-/home/nx-digital/barber-app/
-frontend:
-  i18n.js           Diccionario ES/EN compartido (import ESM)
-  demo.html         Frontend publico (type="module")
-  demo.js           Logica de reserva publica (importa i18n.js)
-  admin.html        Panel barbero (type="module")
-  admin.js          Logica admin (importa i18n.js)
 
-backend:
-  app/core/lang.py          Parser Accept-Language a 'es'/'en'
-  app/core/email.py         Envio transactional bilingue (ES/EN)
-  app/core/auth.py          Verificacion JWT para /admin/*
-  app/core/limiter.py       Rate limiter (slowapi, memoria local)
-  app/core/config.py        Settings (DB, horario, SMTP, rate limit, JWT)
-  app/core/logic.py         Logica de negocio (slots, create_appointment)
-  app/api/public.py         Endpoints publicos (/book, /manage, /services, /available-slots)
-  app/api/admin.py          Endpoints admin (summary, clients, upcoming, status, create)
-  app/main.py               App FastAPI + middleware (CORS, SlowAPI, auth)
+---
 
-infra:
-  docker-compose.yml
-  static.Dockerfile
-  backend/entrypoint.sh
-```
+## Decisions settled (do not reopen)
 
-## Skills instaladas
-- **find-skills** (vercel-labs, vía `.agents/skills/find-skills/`): Descubre skills en el ecosistema abierto cuando una tarea concreta lo requiera. No se usará por defecto — solo bajo necesidad real validada (instalaciones >1K, fuente reputada, repo >100 stars).
+| Decision | Rule |
+|---|---|
+| **Brand name** | Always "Código de Caballeros Salon", never "Barber Studio" or anything else |
+| **i18n fallback** | sessionStorage → localStorage (try/catch) → navigator.languages → `'es'` |
+| **Language selector** | Text-only "Español \| English", no flag icons |
+| **Phone format** | Always `+34 600 000 000` (Spanish placeholder) |
+| **Date formatting** | `locale()` — ES uses `es-ES`, EN uses `en-US` |
+| **Auth** | JWT via `Authorization: Bearer <token>`. HTTPS required in production |
+| **No emoji** | Unless the user explicitly requests them |
+| **No `print()`** | Use `logging` (verified: zero `print()` calls in backend Python) |
+| **Date source of truth** | `YYYY-MM-DD` string for all agenda views |
+| **Rate limit** | SlowAPI in-memory, 5/min on `POST /book`, configurable via `RATE_LIMIT_BOOK` |
+| **ADMIN_PASSWORD** | No default — `.env` required, app crashes at startup if empty |
+| **Reset demo** | `RESET_DEMO_ALLOWED=true` env var required; default is `false` |
 
-## Decisiones tomadas (no reabrir)
+---
 
-- Marca: siempre "Codigo de Caballeros Salon", nunca "Barber Studio".
-- Idioma persistencia: memoria sesion -> localStorage (try/catch) -> navigator.languages -> fallback 'es'.
-- Selector idioma: "Espanol | English" / "English | Espanol" en header, sin banderas.
-- Sin traduccion BD: nombres de servicios y precios no se traducen.
-- Placeholder telefono: siempre espanol (+34 600 000 000).
-- Fechas: se renderizan segun locale() (ES -> es-ES, EN -> en-US).
-- type="module": demo.html y admin.html cargan con type="module".
-- Sin localStorage: app no falla (try/catch silencioso).
-- Auth admin: JWT via header Authorization: Bearer <token>. Token obtenido via POST /admin/login. En produccion debe ir siempre detras de HTTPS.
-- Rate limit: slowapi en memoria local, 5 peticiones/minuto por IP en POST /book. Configurable via RATE_LIMIT_BOOK.
-- No commits a git: el usuario decide cuando commitear.
+## Key file map
 
-## Convenciones de codigo
+| File | Role |
+|---|---|
+| `admin.js` (~4745 lines) | React 18 CDN admin panel (Agenda, CRM, Dashboard, Settings) |
+| `demo.js` (~508 lines) | Public booking flow (3 steps: service → slot → form) |
+| `i18n.js` (~772 lines) | ES/EN dictionary shared by both frontends |
+| `backend/app/core/auth.py` | JWT create + verify (only auth method) |
+| `backend/app/core/logic.py` | Slot calculation + appointment creation (raw SQL) |
+| `backend/app/core/state_machine.py` | `ALLOWED_TRANSITIONS` dict — `booked→{completed,cancelled}`, others terminal |
+| `backend/app/core/email.py` | Bilingual transactional email (works in production via Gmail SMTP) |
+| `backend/app/core/push.py` | Web Push VAPID (active in production) |
+| `backend/app/scheduler/tasks.py` | APScheduler: auto-complete, reminders (15min), recalls (6h) |
+| `DESIGN_SYSTEM.md` | Visual token system for admin.js — check before styling changes |
+| `.env.example` | Authoritative list of all env vars with defaults |
 
-- Frontend: React 18 via CDN (esm.sh), createElement plano sin JSX, Tailwind via CDN, mobile-first.
-- Backend: Python 3.10+, FastAPI, SQLModel, Pydantic v2, UTC en backend, logs a stdout.
-- Errores HTTP: 400 (regla negocio), 401 (no autorizado), 404 (no encontrado), 409 (solapamiento), 429 (rate limit), 500 (inesperado).
-- Auth admin centralizada por router (dependencies=[Depends(verify_admin)]), no por ruta individual.
-- Emails bilingues: send_confirmation() y send_cancellation() aceptan lang='es'|'en', cuerpos y asuntos en el idioma correspondiente.
-- i18n: t('key', ...args) con placeholders {0}, {1}. Sin dependencias externas.
+---
 
-## Estado por capa
+## Gotchas
 
-- **Backend**: MVP completo con auth admin JWT, rate limiting (/book), emails bilingües.
-- **Frontend**: demo y admin funcionales con i18n ES/EN completo.
-- **Email**: bilingue validado (ES y EN), routers conectados via Accept-Language.
-- **Seguridad**: auth JWT-only (sin fallback API key), rate limit en /book. Pendiente HTTPS para produccion.
-- **Docker**: docker-compose.yml y static.Dockerfile creados pero no verificados (Docker no disponible en host).
-
-## Deudas tecnicas
-
-- Rate limiting en memoria local: no escala a multiples replicas. Migrar a Redis si hay >1 instancia.
-- Sin HTTPS: el despliegue en produccion requiere reverse proxy (nginx/Caddy) con TLS.
-- Auth admin basica (JWT fijo): suficiente para MVP. Migrar a login con refresh tokens si el proyecto crece.
-- Frontend sin build: los archivos se sirven directamente con http.server. Para produccion, considerar servir con nginx (static.Dockerfile ya existe).
-- Docker pendiente de verificacion: no se ha probado docker-compose up en este host.
+- **`send_recalls()` only logs** — does NOT send email (known bug, not part of current scope).
+- **booking-logic.md claims "envío real de emails ahora solo loguea"** — this is **stale**. Email IS functional in production via Gmail SMTP (`send_confirmation` + `send_cancellation` both send real emails when `SMTP_HOST` is configured).
+- **`RESET_DEMO_ALLOWED` defaults to `false`** — must be explicitly set to `true` in `.env` to use `/admin/reset-demo` on production.
+- **No git commits by agent** — the user decides when to commit.
+- **fastapi dev mode** uses `--reload` for backend; frontend uses `python3 -m http.server` for static files. There is no hot-reload for frontend changes.
+- **nginx config has both static file routes AND a catch-all proxy** — the `location /` block at line 82 of `nginx.conf` proxies to backend. Static file locations must be listed before this catch-all.
