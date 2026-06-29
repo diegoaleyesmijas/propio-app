@@ -2024,9 +2024,9 @@ function LoginForm({ onLogin }) {
       // Brand block
       h('div', { className: 'text-center' },
           h('img', {
-            src: '/logo-web.png',
-            alt: t('brand'),
-            className: 'h-32 w-auto mx-auto mb-5 object-contain'
+            src: '/propio-icon.svg',
+            alt: 'PROPIO',
+            className: 'w-20 h-20 mx-auto mb-4 object-contain'
           }),
           h('h1', { className: 'text-[1.5rem] font-extrabold text-stone-900 tracking-tight leading-tight' }, t('brand')),
         h('p', { className: 'text-sm text-stone-400 mt-2 font-medium' }, t('admin.login_title'))
