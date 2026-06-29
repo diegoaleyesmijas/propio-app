@@ -50,6 +50,7 @@ class BookingOut(BaseModel):
     status: str
     is_first_booking: bool = False
     is_first_time: Optional[bool] = None
+    google_place_id: Optional[str] = None
 
 
 class AdminBookingCreate(BaseModel):

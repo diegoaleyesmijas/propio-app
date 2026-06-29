@@ -482,14 +482,19 @@ function App() {
         React.createElement(ManageView, { booking, onCancel: handleCancel })
       ),
 
-      // Google Reviews link (solo al confirmar reserva)
-      step === 'success' && React.createElement('div', { className: 'mt-6 text-center' },
+      // Google Reviews link (solo al confirmar reserva, si hay place_id configurado)
+      step === 'success' && booking?.google_place_id && React.createElement('div', { className: 'mt-6 text-center' },
         React.createElement('a', {
-          href: 'https://search.google.com/local/reviews?placeid=PLACEHOLDER_PLACE_ID',
+          href: 'https://search.google.com/local/reviews?placeid=' + encodeURIComponent(booking.google_place_id),
           target: '_blank',
           rel: 'noopener noreferrer',
-          className: 'text-xs text-stone-400 hover:text-propio-500 underline transition'
-        }, t('settings.view_reviews'))
+          className: 'inline-flex items-center gap-1.5 text-xs text-stone-400 hover:text-propio-500 transition-colors'
+        },
+          React.createElement('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round', className: 'w-3.5 h-3.5' },
+            React.createElement('path', { d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z')
+          ),
+          t('settings.view_reviews')
+        )
       ),
 
       // ── Footer: "Powered by PROPIO" (solo en pasos de reserva, no en manage) ──

@@ -73,6 +73,7 @@ def create_booking(
         start_time=result["start_time"],
         is_first_booking=result.get("is_first_booking", False),
     )
+    gp_id = settings.GOOGLE_PLACE_ID or None
     return BookingOut(
         token_uuid=result["token_uuid"],
         service_name=result["service_name"],
@@ -82,6 +83,7 @@ def create_booking(
         status=result["status"],
         is_first_booking=result.get("is_first_booking", False),
         is_first_time=result.get("is_first_time"),
+        google_place_id=gp_id,
     )
 
 
@@ -99,6 +101,7 @@ def get_booking(token_uuid: str, db: Session = Depends(get_session)):
     ).first()
     if not row:
         raise HTTPException(status_code=404, detail="Booking not found")
+    gp_id = settings.GOOGLE_PLACE_ID or None
     return BookingOut(
         token_uuid=str(row[0]),
         service_name=row[1],
@@ -106,6 +109,7 @@ def get_booking(token_uuid: str, db: Session = Depends(get_session)):
         end_time=row[3],
         customer_name=row[4],
         status=row[5],
+        google_place_id=gp_id,
     )
 
 
