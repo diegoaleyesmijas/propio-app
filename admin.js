@@ -336,6 +336,19 @@ async function updateAdminSettings(token, payload) {
   return data
 }
 
+// ── Change admin password ──
+async function changeAdminPassword(currentPassword, newPassword) {
+  const r = await fetch(`${API}/admin/change-password`, {
+    method: 'POST',
+    headers: _adminHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  })
+  if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.detail || 'Error al cambiar contraseña')
+  return data
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────
 
 // Devuelve la fecha local YYYY-MM-DD a partir de un Date (evita el bug UTC de toISOString)
@@ -2013,7 +2026,7 @@ function LoginForm({ onLogin }) {
           h('img', {
             src: '/logo-web.png',
             alt: t('brand'),
-            className: 'h-20 w-auto mx-auto mb-4 object-contain'
+            className: 'h-32 w-auto mx-auto mb-5 object-contain'
           }),
           h('h1', { className: 'text-[1.5rem] font-extrabold text-stone-900 tracking-tight leading-tight' }, t('brand')),
         h('p', { className: 'text-sm text-stone-400 mt-2 font-medium' }, t('admin.login_title'))
@@ -2915,6 +2928,12 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
   const [googleSaved, setGoogleSaved] = useState(false)
   const [savingGoogle, setSavingGoogle] = useState(false)
   const [googleError, setGoogleError] = useState(null)
+  // Password change state
+  const [pwCurrent, setPwCurrent] = useState('')
+  const [pwNew, setPwNew] = useState('')
+  const [pwConfirm, setPwConfirm] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwStatus, setPwStatus] = useState(null) // { type: 'success'|'error', text: '' }
   // Push subscription state
   const [pushStatus, setPushStatus] = useState('loading') // 'loading' | 'unsupported' | 'denied' | 'inactive' | 'active' | 'error'
   const [pushSub, setPushSub] = useState(null)
@@ -3038,6 +3057,34 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
     }
   }
 
+  const handleChangePassword = async () => {
+    setPwStatus(null)
+    if (!pwCurrent || !pwNew || !pwConfirm) {
+      setPwStatus({ type: 'error', text: t('admin.password_fill_all') || 'Completa todos los campos' })
+      return
+    }
+    if (pwNew !== pwConfirm) {
+      setPwStatus({ type: 'error', text: t('admin.password_mismatch') || 'Las contraseñas no coinciden' })
+      return
+    }
+    if (pwNew.length < 6) {
+      setPwStatus({ type: 'error', text: t('admin.password_short') || 'La contraseña debe tener al menos 6 caracteres' })
+      return
+    }
+    setPwSaving(true)
+    try {
+      const res = await changeAdminPassword(pwCurrent, pwNew)
+      setPwStatus({ type: 'success', text: res.message || 'Contraseña actualizada correctamente' })
+      setPwCurrent(''); setPwNew(''); setPwConfirm('')
+      // Trigger a toast notification too
+      if (onToast) onToast(res.message || 'Contraseña actualizada')
+    } catch (e) {
+      setPwStatus({ type: 'error', text: e.message })
+    } finally {
+      setPwSaving(false)
+    }
+  }
+
   return h('div', { className: 'pt-1 px-4 space-y-4 pb-24' },
     // Sub-tab navigation
     h('div', { className: 'flex gap-1 bg-stone-100 rounded-xl p-0.5' },
@@ -3105,6 +3152,49 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
         t('settings.push_activated')
       ),
       /iPhone|iPad|iPod/i.test(navigator.userAgent) && pushStatus !== 'active' && h('p', { className: 'text-[10px] text-stone-400 mt-2' }, t('settings.push_ios_guide'))
+    ),
+
+    // ── Change Password section ──
+    h('div', { className: 'bg-white rounded-2xl border border-stone-200 p-4' },
+      h('p', { className: 'text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-3' }, t('settings.change_password') || 'Cambiar contraseña'),
+      h('div', { className: 'space-y-3' },
+        h('div', null,
+          h('label', { className: 'text-xs font-semibold text-stone-500' }, t('admin.password_current') || 'Contraseña actual'),
+          h('input', {
+            type: 'password', value: pwCurrent,
+            onChange: e => setPwCurrent(e.target.value),
+            placeholder: '••••••••',
+            className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
+          })
+        ),
+        h('div', null,
+          h('label', { className: 'text-xs font-semibold text-stone-500' }, t('admin.password_new') || 'Nueva contraseña'),
+          h('input', {
+            type: 'password', value: pwNew,
+            onChange: e => setPwNew(e.target.value),
+            placeholder: '••••••••',
+            className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
+          })
+        ),
+        h('div', null,
+          h('label', { className: 'text-xs font-semibold text-stone-500' }, t('admin.password_confirm') || 'Repetir contraseña'),
+          h('input', {
+            type: 'password', value: pwConfirm,
+            onChange: e => setPwConfirm(e.target.value),
+            placeholder: '••••••••',
+            className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
+          })
+        ),
+        pwStatus && h('p', {
+          className: 'text-xs rounded-xl px-3 py-2 ' +
+            (pwStatus.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 border border-red-200 text-red-700')
+        }, pwStatus.text),
+        h('button', {
+          onClick: handleChangePassword,
+          disabled: pwSaving || !pwCurrent || !pwNew || !pwConfirm,
+          className: 'w-full py-2.5 rounded-xl bg-propio-500 hover:bg-propio-600 text-white font-bold text-sm shadow active:scale-[0.98] transition cursor-pointer disabled:opacity-50'
+        }, pwSaving ? t('settings.saving') || 'Guardando...' : t('crm.save') || 'Guardar')
+      )
     ),
 
     // Reset Demo Data section

@@ -47,6 +47,8 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-admin@codigodecaballeros.site}
       ADMIN_PANEL_URL: ${ADMIN_PANEL_URL:-https://codigodecaballeros.site/admin.html}
+    volumes:
+      - ./.env:/app/.env:rw
     # No exponemos puerto: solo accesible desde nginx
 
   # ── Nginx reverse proxy + static files ──

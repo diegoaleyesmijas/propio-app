@@ -1,4 +1,6 @@
 import logging
+import os
+import re
 logger = logging.getLogger("admin")
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, Query
@@ -1245,3 +1247,55 @@ def unregister_push_subscription(
         db.commit()
         logger.info(f"Push subscription removed: {existing.id}")
     return {"ok": True}
+
+
+# ── Change admin password ──
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/admin/change-password")
+def change_admin_password(
+    payload: ChangePasswordRequest,
+    _: bool = Depends(verify_admin),
+):
+    """Cambia la contraseña del admin en el .env y reinicia el backend."""
+    # Validate current password
+    if payload.current_password != settings.ADMIN_PASSWORD:
+        raise HTTPException(status_code=403, detail="La contraseña actual no es correcta")
+
+    if len(payload.new_password) < 6:
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 6 caracteres")
+
+    # Read and update .env file
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env")
+    env_path = os.path.abspath(env_path)
+
+    if not os.path.exists(env_path):
+        raise HTTPException(status_code=500, detail="No se encontró el archivo .env")
+
+    try:
+        with open(env_path, "r") as f:
+            content = f.read()
+
+        # Replace ADMIN_PASSWORD line
+        updated = re.sub(
+            r"^ADMIN_PASSWORD=.*$",
+            f"ADMIN_PASSWORD={payload.new_password}",
+            content,
+            flags=re.MULTILINE,
+        )
+
+        with open(env_path, "w") as f:
+            f.write(updated)
+
+        logger.info(f"Admin password changed successfully (env: {env_path})")
+        return {
+            "ok": True,
+            "message": "Contraseña actualizada. El cambio se aplicará al reiniciar el contenedor.",
+        }
+    except Exception as e:
+        logger.error(f"Failed to update .env: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al actualizar contraseña: {str(e)}")
