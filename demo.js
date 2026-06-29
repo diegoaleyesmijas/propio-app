@@ -495,12 +495,12 @@ function App() {
       // ── Footer: "Powered by PROPIO" (solo en pasos de reserva, no en manage) ──
       step !== 'manage' && React.createElement('div', { className: 'mt-6 mb-4 text-center' },
         React.createElement('span', {
-          className: 'inline-flex items-center gap-2 text-stone-300 text-[10px] font-medium tracking-wide'
+          className: 'inline-flex items-center gap-2 text-stone-400 text-xs font-medium tracking-wide'
         },
           React.createElement('img', {
             src: '/propio-icon.svg',
-            alt: '',
-            className: 'h-5 w-auto inline-block'
+            alt: 'PROPIO',
+            className: 'h-6 w-auto inline-block'
           }),
           'Powered by PROPIO'
         )

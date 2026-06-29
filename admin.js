@@ -2024,9 +2024,9 @@ function LoginForm({ onLogin }) {
       // Brand block
       h('div', { className: 'text-center' },
           h('img', {
-            src: '/propio-icon.svg',
-            alt: 'PROPIO',
-            className: 'w-20 h-20 mx-auto mb-4 object-contain'
+            src: '/logo-web.png',
+            alt: t('brand'),
+            className: 'h-32 w-auto mx-auto mb-5 object-contain'
           }),
           h('h1', { className: 'text-[1.5rem] font-extrabold text-stone-900 tracking-tight leading-tight' }, t('brand')),
         h('p', { className: 'text-sm text-stone-400 mt-2 font-medium' }, t('admin.login_title'))
@@ -2119,7 +2119,7 @@ function LoginForm({ onLogin }) {
     // ── Startup branding footer (sutil, fuera del form) ──
     h('div', { className: 'mt-5 text-center flex items-center justify-center gap-1.5 text-[10px] text-stone-300' },
       h('span', null, t('footer.powered')),
-      h('img', { src: '/propio-logo.svg', alt: '', className: 'h-3.5 w-auto inline-block opacity-40' })
+      h('img', { src: '/propio-logo.svg', alt: 'PROPIO', className: 'h-6 w-auto inline-block opacity-70' })
     )
   )
 }
@@ -4806,8 +4806,8 @@ function AdminPanel() {
 
     // ── Footer: startup logo (sutil, fondo del panel) ──
     h('div', { className: 'text-center py-3 hidden md:block' },
-      h('div', { className: 'flex items-center justify-center gap-1.5 text-[9px] text-stone-300' },
-        h('img', { src: '/propio-logo.svg', alt: '', className: 'h-3 w-auto inline-block opacity-30' })
+      h('div', { className: 'flex items-center justify-center gap-1.5 text-[9px] text-stone-400' },
+        h('img', { src: '/propio-logo.svg', alt: 'PROPIO', className: 'h-5 w-auto inline-block opacity-60' })
       )
     ),
 
