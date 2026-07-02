@@ -3,6 +3,7 @@ Web Push (VAPID) — notificaciones push reales al admin cuando entra una reserv
 Sin Firebase, sin terceros. Protocolo Web Push estándar del navegador.
 """
 
+import json
 import logging
 from typing import Optional
 from datetime import datetime, timezone
@@ -29,7 +30,7 @@ def _send_to_subscription(subscription: PushSubscription, payload: dict) -> bool
                     "auth": subscription.auth,
                 }
             },
-            data=payload,
+            data=json.dumps(payload),
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
             vapid_claims={
                 "sub": f"mailto:{settings.VAPID_CLAIM_EMAIL}",

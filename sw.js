@@ -29,8 +29,8 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body || 'Tienes una nueva notificación',
-    icon: data.icon || '/logo-192.png',
-    badge: data.badge || '/pwa-icon-192.png',
+    icon: data.icon || '/propio-icon-192.png',
+    badge: data.badge || '/propio-icon-192.png',
     vibrate: [200, 100, 200],
     tag: data.tag || 'notification',
     data: {
@@ -43,6 +43,17 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     self.registration.showNotification(data.title || 'Código de Caballeros', options)
+      .then(() => self.registration.getNotifications())
+      .then(notifications => {
+        // Send badge count to main thread (navigator.setAppBadge not available in SW)
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+          .then(windowClients => {
+            const count = notifications.length
+            windowClients.forEach(client => {
+              client.postMessage({ type: 'badge', count })
+            })
+          })
+      })
   )
 })
 
@@ -50,19 +61,40 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
+  // Update badge after closing this notification
+  event.waitUntil(
+    self.registration.getNotifications()
+      .then(notifications => {
+        const remaining = notifications.filter(n => n.tag !== event.notification.tag).length
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+          .then(windowClients => {
+            windowClients.forEach(client => {
+              client.postMessage({ type: 'badge', count: remaining })
+            })
+          })
+      })
+  )
+
   const urlToOpen = event.notification.data?.url || '/admin.html'
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((windowClients) => {
-        // Si ya hay una ventana del panel abierta, la enfocamos
         for (const client of windowClients) {
           if (client.url.includes(urlToOpen) || client.url.includes('/admin.html')) {
             return client.focus()
           }
         }
-        // Si no, abrimos nueva
         return clients.openWindow(urlToOpen)
+      })
+      .then(() => {
+        // Clear badge when app is opened
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+          .then(windowClients => {
+            windowClients.forEach(client => {
+              client.postMessage({ type: 'badge', count: 0 })
+            })
+          })
       })
   )
 })

@@ -1,8 +1,9 @@
 """Auth endpoints (login). No auth required — validates credentials against settings."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from app.core.config import settings
 from app.core.auth import create_access_token
+from app.core.limiter import limiter
 
 router = APIRouter()
 
@@ -18,7 +19,8 @@ class LoginResponse(BaseModel):
 
 
 @router.post("/admin/login", response_model=LoginResponse)
-def admin_login(payload: LoginRequest):
+@limiter.limit("5/minute")
+def admin_login(request: Request, payload: LoginRequest):
     """Authenticate with username + password, returns a JWT token valid for 24h."""
     if (
         payload.username != settings.ADMIN_USERNAME

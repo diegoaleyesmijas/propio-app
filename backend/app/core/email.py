@@ -136,6 +136,43 @@ def send_cancellation(
     return _send_raw(to, _cancel_subject(lang), body)
 
 
+def send_recall(
+    to: str,
+    customer_name: str,
+    booking_url: str,
+    review_url: str | None = None,
+    lang: str = 'es',
+) -> bool:
+    """Send post-visit recall email asking how it went + review link."""
+    review_line = f"\nSi queres dejarnos una reseña:\n  {review_url}\n" if review_url else "\n"
+    if lang == 'en':
+        body = (
+            f"Hi {customer_name},\n\n"
+            f"Thanks for visiting {BUSINESS_NAME}!\n"
+            f"We hope you enjoyed your experience.\n"
+            f"Would you leave us a review? It helps us a lot.\n"
+            f"{review_line}"
+            f"Book your next visit here:\n"
+            f"  {booking_url}\n\n"
+            f"See you soon,\n"
+            f"{BUSINESS_NAME}"
+        )
+    else:
+        body = (
+            f"Hola {customer_name},\n\n"
+            f"Gracias por visitar {BUSINESS_NAME}!\n"
+            f"Esperamos que hayas disfrutado la experiencia.\n"
+            f"Nos ayudaria mucho si nos dejas una reseña.\n"
+            f"{review_line}"
+            f"Reserva tu proxima cita aqui:\n"
+            f"  {booking_url}\n\n"
+            f"Nos vemos pronto,\n"
+            f"{BUSINESS_NAME}"
+        )
+    subject = f"¿Como fue tu visita? - {BUSINESS_NAME}" if lang == 'es' else f"How was your visit? - {BUSINESS_NAME}"
+    return _send_raw(to, subject, body)
+
+
 # ── Background tasks (called from routers via BackgroundTasks) ──
 
 FRONTEND_URL = settings.FRONTEND_URL
@@ -184,7 +221,7 @@ def background_send_confirmation(
         _update_notification_status(appointment_id, "skipped_no_email")
         return
 
-    manage_url = f"{FRONTEND_URL}/demo.html?token={token_uuid}"
+    manage_url = f"{FRONTEND_URL}/reservar.html?token={token_uuid}"
     date_str = _fmt_date(start_time, lang)
     time_str = _fmt_time(start_time)
 
@@ -205,7 +242,7 @@ def background_send_cancellation(
         _update_notification_status(appointment_id, "skipped_no_email")
         return
 
-    booking_url = f"{FRONTEND_URL}/demo.html"
+    booking_url = f"{FRONTEND_URL}/reservar.html"
     date_str = _fmt_date(start_time, lang)
     time_str = _fmt_time(start_time)
 

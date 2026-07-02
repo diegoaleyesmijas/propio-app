@@ -1,8 +1,8 @@
 {
-  "name": "Código de Caballeros · Panel",
-  "short_name": "CC Panel",
-  "description": "Panel de gestión para Código de Caballeros Salon",
-  "start_url": "/admin.html",
+  "name": "Código de Caballeros · Reservas",
+  "short_name": "Reservas",
+  "description": "Reserva tu cita en Código de Caballeros Salon",
+  "start_url": "/reservar.html",
   "display": "standalone",
   "scope": "/",
   "background_color": "#F6F3EE",
@@ -22,5 +22,5 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["business"]
+  "categories": ["lifestyle"]
 }

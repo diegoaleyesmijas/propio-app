@@ -12,7 +12,7 @@ from sqlmodel import Session
 
 from app.db.database import engine
 from app.core.config import settings
-from app.core.email import send_confirmation, _fmt_date, _fmt_time
+from app.core.email import send_confirmation, send_recall, _fmt_date, _fmt_time
 
 logger = logging.getLogger("scheduler")
 
@@ -31,7 +31,7 @@ async def send_reminders():
                         ELSE 'pending'
                     END
                 WHERE status = 'booked'
-                  AND notification_status = 'pending'
+                  AND notification_status IN ('pending', 'sent')
                   AND lower(slot) BETWEEN :now AND :window_end
                 RETURNING id, token_uuid, customer_name, customer_email,
                           customer_phone, lower(slot) AS start_time,
@@ -53,7 +53,7 @@ async def send_reminders():
                 continue
 
             # Enviar email de recordatorio usando SMTP real
-            manage_url = f"{settings.FRONTEND_URL}/demo.html?token={token_uuid}"
+            manage_url = f"{settings.FRONTEND_URL}/reservar.html?token={token_uuid}"
             date_str = _fmt_date(start_time, 'es')
             time_str = _fmt_time(start_time)
             success = send_confirmation(email, name, "Recordatorio", date_str, time_str, manage_url, 'es')
@@ -125,9 +125,12 @@ async def send_recalls():
 
         for r in rows:
             appt_id, client_id, name, email, last_visit = r
+            booking_url = f"{settings.FRONTEND_URL}/reservar.html"
+            review_url = f"https://search.google.com/local/reviews?placeid={settings.GOOGLE_PLACE_ID}" if settings.GOOGLE_PLACE_ID else None
+            success = send_recall(email, name, booking_url, review_url, 'es')
             logger.info(
-                f"[EMAIL] Recall to {email} for {name} "
-                f"(last visit {last_visit.date()}, {client_id=})"
+                f"Recall {'sent' if success else 'failed'} to {email} for {name}"
+                f" (last visit {last_visit.date()})"
             )
             db.execute(
                 text("UPDATE appointments SET recall_sent = TRUE WHERE id = :id"),

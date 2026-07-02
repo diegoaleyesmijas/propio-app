@@ -10,6 +10,7 @@ class ServiceOut(BaseModel):
     price: float
     duration_minutes: int
     hex_color: Optional[str] = None
+    description: Optional[str] = None
 
 
 class ServiceCreate(BaseModel):
@@ -40,6 +41,16 @@ class BookingCreate(BaseModel):
     start_time: datetime
     is_first_time: Optional[bool] = None
 
+    @field_validator('customer_name', 'customer_phone', mode='before')
+    @classmethod
+    def strip_html_tags(cls, v):
+        """Sanitize against stored XSS: strip HTML/script tags and whitespace."""
+        if v is None:
+            return ""
+        v = str(v).strip()
+        v = re.sub(r'<[^>]*>', '', v)
+        return v.strip()
+
 
 class BookingOut(BaseModel):
     token_uuid: str
@@ -61,6 +72,16 @@ class AdminBookingCreate(BaseModel):
     start_time: datetime
     is_first_time: Optional[bool] = None
     is_demo: Optional[bool] = None
+
+    @field_validator('customer_name', 'customer_phone', mode='before')
+    @classmethod
+    def strip_html_tags(cls, v):
+        """Sanitize against stored XSS: strip HTML/script tags and whitespace."""
+        if v is None:
+            return ""
+        v = str(v).strip()
+        v = re.sub(r'<[^>]*>', '', v)
+        return v.strip()
 
 
 class ResetDemoRequest(BaseModel):

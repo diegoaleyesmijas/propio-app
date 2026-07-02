@@ -1,7 +1,7 @@
 // Demo standalone del frontend MVP - valida el flujo real contra el backend en :8000
 // Replica los componentes React de frontend/src/ pero con React vía CDN.
 
-import React, { useState, useEffect, useCallback, useMemo } from 'https://esm.sh/react@18.3.1'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'https://esm.sh/react@18.3.1'
 import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client'
 import { t, getLang, setLang, locale } from '/i18n.js'
 
@@ -56,6 +56,22 @@ function fmtTime(iso) {
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' })
 }
+
+// ── Category grouping (Booksy-style accordion) ──
+const CATEGORY_LABEL = {
+  '#8B5CF6': 'Pack Código de Caballeros',
+  '#F59E0B': 'Corte de cabello',
+  '#10B981': 'Barbería',
+  '#EC4899': 'Color del cabello',
+  '#06B6D4': 'Trabajo técnico',
+  '#14B8A6': 'Higiene Masculina',
+  '#78716C': 'Servicio Premium',
+  '#A8A29E': 'Otros',
+}
+const CATEGORY_ORDER = [
+  '#8B5CF6', '#F59E0B', '#10B981', '#EC4899',
+  '#06B6D4', '#14B8A6', '#78716C', '#A8A29E',
+]
 
 // ---------- Components ----------
 
@@ -137,25 +153,63 @@ function Header({ step, onBack }) {
 function ServiceCard({ service, selected, onClick }) {
   return React.createElement('div', {
     onClick,
-    className: `rounded-[1.75rem] p-[1.5px] cursor-pointer transition-all active:scale-[0.98] ${selected ? 'bg-propio-500/20 ring-2 ring-propio-500' : 'bg-stone-100/80 hover:bg-stone-200/80'}`
+    className: `rounded-xl p-3.5 cursor-pointer transition-all active:scale-[0.98] border ${
+      selected ? 'bg-propio-50 border-propio-500 ring-2 ring-propio-500/20' : 'bg-white border-stone-100 hover:border-stone-200 hover:bg-stone-50'
+    }`
   },
-    React.createElement('div', {
-      className: 'w-full flex items-center gap-4 bg-white rounded-[calc(1.75rem-1.5px)] p-4 shadow-sm border border-stone-200/50'
-    },
-      React.createElement('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '1.5', strokeLinecap: 'round', strokeLinejoin: 'round', className: 'w-6 h-6 text-stone-400' },
-        React.createElement('circle', { cx: '6', cy: '6', r: '3' }),
-        React.createElement('path', { d: 'M8.12 8.12 12 12' }),
-        React.createElement('path', { d: 'M20 4 8.12 15.88' }),
-        React.createElement('circle', { cx: '6', cy: '18', r: '3' }),
-        React.createElement('path', { d: 'M14.8 14.8 20 20' })
-      ),
+    React.createElement('div', { className: 'flex items-start gap-3' },
       React.createElement('div', { className: 'flex-1 min-w-0' },
-        React.createElement('h3', { className: 'font-bold text-base truncate text-stone-900' }, service.name),
-        React.createElement('p', { className: 'text-sm text-stone-500' }, t('template.duration_min', service.duration_minutes))
+        React.createElement('h3', { className: 'font-bold text-sm leading-snug text-stone-900' }, service.name),
+        service.description && React.createElement('p', { className: 'text-xs text-stone-400 mt-0.5 line-clamp-2 leading-relaxed' }, service.description),
+        React.createElement('p', { className: 'text-xs text-stone-500 mt-1 font-medium' }, t('template.duration_min', service.duration_minutes))
       ),
-      React.createElement('div', { className: 'text-right' },
-        React.createElement('p', { className: 'text-lg font-bold text-propio-700' }, `${service.price}€`),
-        React.createElement('p', { className: 'text-[10px] uppercase tracking-wider text-stone-400' }, t('booking.iva_incl'))
+      React.createElement('div', { className: 'text-right shrink-0 pl-1' },
+        React.createElement('p', { className: 'text-base font-extrabold text-propio-700' }, `${service.price}€`)
+      )
+    )
+  )
+}
+
+function CategoryAccordion({ color, label, services, selectedService, onSelectService, open, onToggle }) {
+  const count = services.length
+  return React.createElement('div', { className: 'mb-3' },
+    // ── Category header ──
+    React.createElement('button', {
+      onClick: onToggle,
+      'aria-expanded': open,
+      className: `w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border transition-all active:scale-[0.99] ${
+        open ? 'border-stone-200 shadow-sm' : 'border-stone-100 hover:bg-stone-50'
+      }`
+    },
+      React.createElement('div', {
+        className: 'w-3.5 h-3.5 rounded-full shrink-0 ring-1 ring-black/5',
+        style: { backgroundColor: color }
+      }),
+      React.createElement('div', { className: 'flex-1 text-left min-w-0' },
+        React.createElement('h3', { className: 'font-bold text-sm text-stone-800 truncate' }, label),
+        React.createElement('p', { className: 'text-[11px] text-stone-400 mt-0.5' },
+          `${count} ${count === 1 ? 'servicio' : 'servicios'}`
+        )
+      ),
+      React.createElement('svg', {
+        viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2.5', strokeLinecap: 'round', strokeLinejoin: 'round',
+        className: `w-5 h-5 text-stone-400 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`
+      },
+        React.createElement('polyline', { points: '6 9 12 15 18 9' })
+      )
+    ),
+    // ── Accordion content ──
+    React.createElement('div', {
+      className: 'accordion-grid' + (open ? ' open' : ''),
+    },
+      React.createElement('div', null,
+        React.createElement('div', { className: 'pt-2 pb-1 space-y-1.5 px-1' },
+          services.map(s => React.createElement(ServiceCard, {
+            key: s.id, service: s,
+            selected: selectedService?.id === s.id,
+            onClick: () => onSelectService(s)
+          }))
+        )
       )
     )
   )
@@ -375,6 +429,68 @@ function App() {
   const [formData, setFormData] = useState(null)
   const [manageToken, setManageToken] = useState(null)
 
+  // ── Service grouping (Booksy-style accordion) ──
+  const groupedServices = useMemo(() => {
+    const groups = {}
+    for (const s of services) {
+      const cat = s.hex_color || '#A8A29E'
+      if (!groups[cat]) groups[cat] = []
+      groups[cat].push(s)
+    }
+    // Sort each category: "Pagar en efectivo" always last within its group
+    for (const cat of Object.keys(groups)) {
+      groups[cat].sort((a, b) => {
+        if (a.name === 'Pagar en efectivo') return 1
+        if (b.name === 'Pagar en efectivo') return -1
+        return 0
+      })
+    }
+    // Build sorted array by CATEGORY_ORDER
+    const sorted = []
+    for (const color of CATEGORY_ORDER) {
+      if (groups[color] && groups[color].length > 0) {
+        sorted.push({ color, label: CATEGORY_LABEL[color] || 'Otros', services: groups[color] })
+      }
+    }
+    return sorted
+  }, [services])
+
+  const [openCategories, setOpenCategories] = useState({})
+
+  const toggleCategory = useCallback((color) => {
+    setOpenCategories(prev => ({ ...prev, [color]: !prev[color] }))
+  }, [])
+
+  const STEP_ORDER = { service: 0, slot: 1, form: 2, success: 3, manage: -1 }
+
+  // History-aware navigation — so the PWA back button/swipe doesn't close the app
+  const goToStep = useCallback((newStep) => {
+    const curIdx = STEP_ORDER[step] ?? -1
+    const newIdx = STEP_ORDER[newStep] ?? -1
+    if (newIdx > curIdx) {
+      window.history.pushState({ step: newStep }, '')
+    } else if (newIdx < curIdx) {
+      window.history.back()
+      return
+    }
+    setStep(newStep)
+  }, [step])
+
+  useEffect(() => {
+    const onPop = (e) => {
+      const targetStep = e.state?.step
+      if (targetStep && STEP_ORDER[targetStep] !== undefined) {
+        setStep(targetStep)
+      }
+    }
+    // Seed initial history state so the first pushState has something to go back to
+    if (!window.history.state?.step) {
+      window.history.replaceState({ step: 'service' }, '')
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
   useEffect(() => { getServices().then(setServices).catch(e => setError(e.message)) }, [])
 
   // Check URL for manage token
@@ -384,6 +500,7 @@ function App() {
     if (token) {
       setManageToken(token)
       getBooking(token).then(setBooking).catch(e => setError(e.message))
+      window.history.replaceState({ step: 'manage' }, '')
       setStep('manage')
     }
   }, [])
@@ -410,12 +527,13 @@ function App() {
     setFormData(form); setLoadingBook(true); setError(null)
     try {
       const res = await createBooking({ service_id: selectedService.id, start_time: selectedSlot, ...form })
-      setBooking(res); setStep('success')
+      setBooking(res); goToStep('success')
     } catch (e) { setError(e.message) }
     finally { setLoadingBook(false) }
   }
 
   const reset = () => {
+    window.history.replaceState({ step: 'service' }, '')
     setStep('service'); setSelectedService(null); setSelectedSlot(null)
     setBooking(null); setError(null); setFormData(null)
   }
@@ -433,8 +551,8 @@ function App() {
     React.createElement(Header, {
       step,
       onBack:
-        step === 'slot' ? () => setStep('service') :
-        step === 'form' ? () => setStep('slot') :
+        step === 'slot' ? () => window.history.back() :
+        step === 'form' ? () => window.history.back() :
         null
     }),
     React.createElement('main', { className: 'max-w-md mx-auto px-5 py-6 pb-24' },
@@ -446,13 +564,27 @@ function App() {
       step === 'service' && React.createElement('section', null,
         React.createElement('h2', { className: 'text-2xl font-extrabold mb-1' }, t('booking.title')),
         React.createElement('p', { className: 'text-stone-500 text-sm mb-5' }, t('booking.subtitle')),
-        React.createElement('div', { className: 'space-y-3' },
-          services.map(s => React.createElement(ServiceCard, {
-            key: s.id, service: s,
-            selected: selectedService?.id === s.id,
-            onClick: () => { setSelectedService(s); setStep('slot') }
-          }))
-        )
+        groupedServices.length === 0
+          ? React.createElement('div', { className: 'space-y-3' },
+              Array.from({ length: 5 }).map((_, i) =>
+                React.createElement('div', { key: i, className: 'h-20 rounded-2xl bg-stone-100 animate-pulse' })
+              )
+            )
+          : React.createElement('div', null,
+              groupedServices.map((group, idx) => {
+                const isOpen = group.color in openCategories ? openCategories[group.color] : idx === 0
+                return React.createElement(CategoryAccordion, {
+                  key: group.color,
+                  color: group.color,
+                  label: group.label,
+                  services: group.services,
+                  selectedService,
+                  onSelectService: (s) => { setSelectedService(s); goToStep('slot') },
+                  open: isOpen,
+                  onToggle: () => toggleCategory(group.color),
+                })
+              })
+            )
       ),
 
       step === 'slot' && selectedService && React.createElement('section', null,
@@ -491,7 +623,7 @@ function App() {
           className: 'inline-flex items-center gap-1.5 text-xs text-stone-400 hover:text-propio-500 transition-colors'
         },
           React.createElement('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round', className: 'w-3.5 h-3.5' },
-            React.createElement('path', { d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z')
+            React.createElement('path', { d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'})
           ),
           t('settings.view_reviews')
         )
@@ -518,7 +650,7 @@ function App() {
     },
       React.createElement('div', { className: 'max-w-md mx-auto px-5 py-3' },
         React.createElement('button', {
-          onClick: () => setStep('form'),
+          onClick: () => goToStep('form'),
           className: 'w-full py-3 rounded-xl bg-propio-500 hover:bg-propio-600 text-white text-base font-bold active:scale-[0.98] transition-all shadow-lg cursor-pointer group'
         },
           React.createElement('span', { className: 'flex items-center justify-center gap-2.5' },

@@ -292,7 +292,8 @@ async function deleteSeason(token, id) {
 }
 
 async function getAdminBlocks(token, date) {
-  const r = await fetch(`${API}/admin/blocks?date=${date}`, { headers: _adminHeaders() })
+  const url = date ? `${API}/admin/blocks?date=${date}` : `${API}/admin/blocks`
+  const r = await fetch(url, { headers: _adminHeaders() })
   if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
   if (!r.ok) throw new Error('Error loading blocks')
   return r.json()
@@ -2949,6 +2950,25 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
     checkPushStatus()
   }, [])
 
+  // ── Listen for badge update messages from Service Worker ──
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMessage = (event) => {
+      if (event.data?.type === 'badge') {
+        const count = event.data.count || 0
+        if (count > 0 && navigator.setAppBadge) {
+          navigator.setAppBadge(count)
+        } else if (navigator.clearAppBadge) {
+          navigator.clearAppBadge()
+        }
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', onMessage)
+    // Clear badge on mount (user opened the app)
+    if (navigator.clearAppBadge) navigator.clearAppBadge()
+    return () => navigator.serviceWorker.removeEventListener('message', onMessage)
+  }, [])
+
   const checkPushStatus = async () => {
     try {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -3196,8 +3216,8 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
       )
     ),
 
-    // Reset Demo Data section
-    h(ResetDemoSection, null)
+    // Reset Demo Data section — only visible in development
+    false && h(ResetDemoSection, null)
   )
 }
 
@@ -3553,7 +3573,7 @@ function HolidaysView({ token, onToast }) {
 function BlocksView({ token, onToast }) {
   const [blocks, setBlocks] = useState([])
   const [loading, setLoading] = useState(true)
-  const [date, setDate] = useState(() => todayISO())
+  const [date, setDate] = useState('')  // empty = show all blocks
   const [showModal, setShowModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState(null)
@@ -3575,7 +3595,7 @@ function BlocksView({ token, onToast }) {
   useEffect(() => { loadBlocks() }, [loadBlocks])
 
   const resetForm = () => {
-    setFormDate(date); setFormType('full_day'); setFormStart(''); setFormEnd(''); setFormReason('')
+    setFormDate(date || todayISO()); setFormType('full_day'); setFormStart(''); setFormEnd(''); setFormReason('')
   }
 
   const handleAdd = async () => {
@@ -3606,9 +3626,13 @@ function BlocksView({ token, onToast }) {
       h('div', { className: 'flex items-center gap-2' },
         h('h3', { className: 'font-bold text-sm text-stone-700' }, t('settings.bloques')),
         h('input', {
-          type: 'date', value: date, onChange: e => setDate(e.target.value),
+          type: 'date', value: date, onChange: e => setDate(e.target.value), placeholder: 'Todos',
           className: 'px-3 py-1.5 rounded-xl bg-white border border-stone-200 text-xs focus:outline-none focus:border-propio-500'
-        })
+        }),
+        date && h('button', {
+          onClick: () => setDate(''),
+          className: 'text-[10px] font-bold py-1 px-2 rounded-lg bg-stone-100 text-stone-500 hover:bg-stone-200 cursor-pointer'
+        }, 'x')
       ),
       h('button', {
         onClick: () => { resetForm(); setShowModal(true) },
@@ -3626,10 +3650,15 @@ function BlocksView({ token, onToast }) {
               h('span', { className: 'text-xs font-bold text-stone-600' }, b.block_type === 'full_day' ? 'D' : '\u23F1')
             ),
             h('div', { className: 'flex-1 min-w-0' },
-              h('p', { className: 'font-bold text-sm' },
-                b.block_type === 'full_day' ? t('settings.block_full_day') : (b.start_time + ' - ' + b.end_time)
+              h('div', { className: 'flex items-center gap-2' },
+                h('p', { className: 'font-bold text-sm' },
+                  b.block_type === 'full_day' ? t('settings.block_full_day') : (b.start_time + ' - ' + b.end_time)
+                ),
+                h('span', { className: 'text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 font-medium shrink-0' },
+                  new Date(b.block_date + 'T12:00:00').toLocaleDateString(locale(), { day: 'numeric', month: 'short' })
+                )
               ),
-              b.reason && h('p', { className: 'text-xs text-stone-400 truncate' }, b.reason)
+              b.reason && h('p', { className: 'text-xs text-stone-400 truncate mt-0.5' }, b.reason)
             ),
             h('button', {
               onClick: () => handleDelete(b.id),
@@ -3863,6 +3892,51 @@ function AdminPanel() {
   const notifSinceRef = useRef('')
   const soundRef = useRef(true)
   const prevNotifCountRef = useRef(0)
+
+  // ── PWA back-button navigation history ──
+  // Keep a ref in sync with current navigation state on every render.
+  // Handlers call pushView() before mutating state so the previous view
+  // is pushed onto history; the popstate listener restores it on back.
+  const navStateRef = useRef({ tab: 'agenda', agendaView: 'day' })
+  navStateRef.current = { tab, agendaView, settingsSubTab, selectedClientId: selectedClient?.id || null }
+
+  const pushView = useCallback(() => {
+    window.history.pushState(navStateRef.current, '')
+  }, [])
+  window.__pushView = pushView
+
+  // Stable ref for the popstate handler (always sees latest state + setters)
+  const popHandlerRef = useRef(null)
+  popHandlerRef.current = (e) => {
+    if (!e.state?.tab) return
+    setTab(e.state.tab)
+    if (e.state.agendaView) setAgendaView(e.state.agendaView)
+    if (e.state.settingsSubTab) setSettingsSubTab(e.state.settingsSubTab)
+    if (e.state.selectedClientId) {
+      // Lookup client in current list; fall back to null if not found
+      // (clients is in scope via the closure captured on each render)
+      const client = clients.find(c => c.id === e.state.selectedClientId)
+      if (client) setSelectedClient(client)
+      else setSelectedClient(null)
+    } else {
+      setSelectedClient(null)
+    }
+  }
+
+  useEffect(() => {
+    const onPop = (e) => {
+      if (popHandlerRef.current) popHandlerRef.current(e)
+    }
+    // Seed initial entry so the first pushState has something to go back to
+    if (!window.history.state?.tab) {
+      window.history.replaceState({ tab, agendaView, settingsSubTab }, '')
+    }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      delete window.__pushView
+    }
+  }, []) // mount only — handler is kept fresh via popHandlerRef
 
   // ── Effects: load data ──
 
@@ -4142,17 +4216,20 @@ function AdminPanel() {
   }
 
   const handleWeekDaySelect = (dayStr) => {
+    pushView()
     setDate(dayStr)
     setAgendaView('day')
   }
 
   const handleClientClick = (client) => {
+    pushView()
     setSelectedClient(client)
   }
 
   const handleClientBack = () => {
-    setSelectedClient(null)
-    // Refresh clients list
+    // Pop the CRM-detail history entry; popstate handler restores list view
+    window.history.back()
+    // Refresh clients list after popping
     getClients().then(setClients).catch(() => {})
   }
 
@@ -4315,35 +4392,35 @@ function AdminPanel() {
       h('div', { className: 'max-w-2xl md:max-w-none mx-auto md:mx-0 flex md:flex-col ' + (sidebarOpen ? 'md:gap-1 md:p-3' : 'md:gap-0 md:p-2 md:items-center') },
         h(TabButton, {
           active: tab === 'agenda',
-          onClick: () => setTab('agenda'),
+          onClick: () => { pushView(); setTab('agenda') },
           icon: h(SvgCalendar),
           label: t('admin.tab.agenda'),
           collapsed: !sidebarOpen
         }),
         h(TabButton, {
           active: tab === 'upcoming',
-          onClick: () => setTab('upcoming'),
+          onClick: () => { pushView(); setTab('upcoming') },
           icon: h(SvgList),
           label: t('admin.tab.upcoming'),
           collapsed: !sidebarOpen
         }),
         h(TabButton, {
           active: tab === 'clients',
-          onClick: () => setTab('clients'),
+          onClick: () => { pushView(); setTab('clients') },
           icon: h(SvgUsers),
           label: t('admin.tab.clients'),
           collapsed: !sidebarOpen
         }),
         h(TabButton, {
           active: tab === 'dashboard',
-          onClick: () => setTab('dashboard'),
+          onClick: () => { pushView(); setTab('dashboard') },
           icon: h(SvgDashboard),
           label: t('admin.tab.dashboard'),
           collapsed: !sidebarOpen
         }),
         h(TabButton, {
           active: tab === 'settings',
-          onClick: () => setTab('settings'),
+          onClick: () => { pushView(); setTab('settings') },
           icon: h(SvgSettings),
           label: t('settings.title'),
           collapsed: !sidebarOpen
@@ -4389,7 +4466,7 @@ function AdminPanel() {
           ),
           // Row 2 (mobile): view toggle
           h('div', { className: 'flex justify-center sm:justify-end' },
-            h(ViewToggle, { view: agendaView, onChange: setAgendaView })
+            h(ViewToggle, { view: agendaView, onChange: (v) => { pushView(); setAgendaView(v) } })
           )
         ),
 
@@ -4780,10 +4857,11 @@ function AdminPanel() {
         maskRevenue,
         onToggleRevenue: () => setShowRevenue(v => !v),
         onNavigate: (target) => {
-          if (target === 'agenda') setTab('agenda')
-          else if (target === 'clients') setTab('clients')
-          else if (target === 'settings') setTab('settings')
+          if (target === 'agenda') { pushView(); setTab('agenda') }
+          else if (target === 'clients') { pushView(); setTab('clients') }
+          else if (target === 'settings') { pushView(); setTab('settings') }
           else if (target === 'new_booking') {
+            pushView()
             setTab('agenda')
             setShowModal(true)
           }
@@ -4795,7 +4873,7 @@ function AdminPanel() {
     // ── TAB: Settings ──
     tab === 'settings' && h(SettingsPanel, {
       settingsSubTab,
-      onSubTabChange: setSettingsSubTab,
+      onSubTabChange: (sub) => { pushView(); setSettingsSubTab(sub) },
       token: _getToken(),
       onToast: setToast
     }),

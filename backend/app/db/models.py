@@ -13,6 +13,7 @@ class Service(SQLModel, table=True):
     duration_minutes: int
     active: bool = Field(default=True)
     hex_color: Optional[str] = Field(default=None, max_length=7)
+    description: Optional[str] = Field(default=None)
     
     appointments: List["Appointment"] = Relationship(back_populates="service")
 
