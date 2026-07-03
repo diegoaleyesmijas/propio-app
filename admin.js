@@ -2934,6 +2934,7 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
   const [pwConfirm, setPwConfirm] = useState('')
   const [pwSaving, setPwSaving] = useState(false)
   const [pwStatus, setPwStatus] = useState(null) // { type: 'success'|'error', text: '' }
+  const [showPwForm, setShowPwForm] = useState(false)
   // Push subscription state
   const [pushStatus, setPushStatus] = useState('loading') // 'loading' | 'unsupported' | 'denied' | 'inactive' | 'active' | 'error'
   const [pushSub, setPushSub] = useState(null)
@@ -3095,6 +3096,7 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
       const res = await changeAdminPassword(pwCurrent, pwNew)
       setPwStatus({ type: 'success', text: res.message || 'Contraseña actualizada correctamente' })
       setPwCurrent(''); setPwNew(''); setPwConfirm('')
+      setShowPwForm(false)
       // Trigger a toast notification too
       if (onToast) onToast(res.message || 'Contraseña actualizada')
     } catch (e) {
@@ -3175,45 +3177,50 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
 
     // ── Change Password section ──
     h('div', { className: 'bg-white rounded-2xl border border-stone-200 p-4' },
-      h('p', { className: 'text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-3' }, t('settings.change_password') || 'Cambiar contraseña'),
-      h('div', { className: 'space-y-3' },
-        h('div', null,
-          h('label', { className: 'text-xs font-semibold text-stone-500' }, t('admin.password_current') || 'Contraseña actual'),
-          h('input', {
-            type: 'password', value: pwCurrent,
-            onChange: e => setPwCurrent(e.target.value),
-            placeholder: '••••••••',
-            className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
-          })
-        ),
-        h('div', null,
-          h('label', { className: 'text-xs font-semibold text-stone-500' }, t('admin.password_new') || 'Nueva contraseña'),
-          h('input', {
-            type: 'password', value: pwNew,
-            onChange: e => setPwNew(e.target.value),
-            placeholder: '••••••••',
-            className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
-          })
-        ),
-        h('div', null,
-          h('label', { className: 'text-xs font-semibold text-stone-500' }, t('admin.password_confirm') || 'Repetir contraseña'),
-          h('input', {
-            type: 'password', value: pwConfirm,
-            onChange: e => setPwConfirm(e.target.value),
-            placeholder: '••••••••',
-            className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
-          })
-        ),
-        pwStatus && h('p', {
-          className: 'text-xs rounded-xl px-3 py-2 ' +
-            (pwStatus.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 border border-red-200 text-red-700')
-        }, pwStatus.text),
-        h('button', {
-          onClick: handleChangePassword,
-          disabled: pwSaving || !pwCurrent || !pwNew || !pwConfirm,
-          className: 'w-full py-2.5 rounded-xl bg-propio-500 hover:bg-propio-600 text-white font-bold text-sm shadow active:scale-[0.98] transition cursor-pointer disabled:opacity-50'
-        }, pwSaving ? t('settings.saving') || 'Guardando...' : t('crm.save') || 'Guardar')
-      )
+      h('p', { className: 'text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-3' }, 'CLAVES'),
+      !showPwForm
+        ? h('button', {
+            onClick: () => { setShowPwForm(true); setPwStatus(null) },
+            className: 'px-4 py-2.5 rounded-xl bg-propio-500 hover:bg-propio-600 text-white font-bold text-sm shadow active:scale-[0.98] transition cursor-pointer'
+          }, 'Cambiar clave')
+        : h('div', { className: 'space-y-3' },
+            h('div', { className: 'flex items-center justify-between' },
+              h('label', { className: 'text-xs font-semibold text-stone-500' }, t('admin.password_current') || 'Contraseña actual'),
+              h('button', {
+                onClick: () => { setShowPwForm(false); setPwStatus(null); setPwCurrent(''); setPwNew(''); setPwConfirm('') },
+                className: 'text-[10px] font-bold text-stone-400 hover:text-stone-600 cursor-pointer'
+              }, '\u2715')
+            ),
+            h('input', {
+              type: 'password', value: pwCurrent,
+              onChange: e => setPwCurrent(e.target.value),
+              placeholder: '••••••••',
+              className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500'
+            }),
+            h('label', { className: 'text-xs font-semibold text-stone-500' }, t('admin.password_new') || 'Nueva contraseña'),
+            h('input', {
+              type: 'password', value: pwNew,
+              onChange: e => setPwNew(e.target.value),
+              placeholder: '••••••••',
+              className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500'
+            }),
+            h('label', { className: 'text-xs font-semibold text-stone-500' }, t('admin.password_confirm') || 'Repetir contraseña'),
+            h('input', {
+              type: 'password', value: pwConfirm,
+              onChange: e => setPwConfirm(e.target.value),
+              placeholder: '••••••••',
+              className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500'
+            }),
+            pwStatus && h('p', {
+              className: 'text-xs rounded-xl px-3 py-2 ' +
+                (pwStatus.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 border border-red-200 text-red-700')
+            }, pwStatus.text),
+            h('button', {
+              onClick: handleChangePassword,
+              disabled: pwSaving || !pwCurrent || !pwNew || !pwConfirm,
+              className: 'w-full py-2.5 rounded-xl bg-propio-500 hover:bg-propio-600 text-white font-bold text-sm shadow active:scale-[0.98] transition cursor-pointer disabled:opacity-50'
+            }, pwSaving ? t('settings.saving') || 'Guardando...' : t('crm.save') || 'Guardar')
+          )
     ),
 
     // Reset Demo Data section — only visible in development
@@ -3587,7 +3594,15 @@ function BlocksView({ token, onToast }) {
 
   const loadBlocks = useCallback(async () => {
     setLoading(true)
-    try { const data = await getAdminBlocks(token, date); setBlocks(data || []) }
+    try {
+      const data = await getAdminBlocks(token, date);
+      let filtered = data || [];
+      if (!date) {
+        const today = new Date().toISOString().split('T')[0];
+        filtered = filtered.filter(b => b.block_date >= today);
+      }
+      setBlocks(filtered);
+    }
     catch (e) { setFeedback({ type: 'error', text: e.message }) }
     finally { setLoading(false) }
   }, [token, date])
