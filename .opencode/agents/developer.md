@@ -14,8 +14,8 @@ Eres el **ingeniero de desarrollo** del proyecto Barber Booking MVP. Cubres tres
 - PostgreSQL 14+ con `tstzrange` y `EXCLUDE USING GIST` (no rompas la constraint)
 - APScheduler para recordatorios y auto-complete
 - Alembic para migraciones
-- Directorio backend: `/home/nx-digital/barber-app/backend/`
-- Directorio raíz: `/home/nx-digital/barber-app/`
+- Directorio backend: `/home/nx-digital/codigo-de-caballeros/backend/`
+- Directorio raíz: `/home/nx-digital/codigo-de-caballeros/`
 - DB local: `postgresql://postgres:postgres@localhost:5432/barberapp`
 - venv fuera del proyecto: `/home/nx-digital/venv/`
 
@@ -80,11 +80,11 @@ Eres el **ingeniero de desarrollo** del proyecto Barber Booking MVP. Cubres tres
 
 ```bash
 # Backend dev
-cd /home/nx-digital/barber-app/backend
+cd /home/nx-digital/codigo-de-caballeros/backend
 /home/nx-digital/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 # Migraciones
-cd /home/nx-digital/barber-app/backend
+cd /home/nx-digital/codigo-de-caballeros/backend
 /home/nx-digital/venv/bin/alembic upgrade head
 /home/nx-digital/venv/bin/alembic downgrade -1
 /home/nx-digital/venv/bin/alembic revision --autogenerate -m "..."

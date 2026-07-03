@@ -26,9 +26,9 @@ Eres el orquestador del proyecto **Barber Booking MVP**.
 4. **Reporta al usuario** con un consolidado: ✅ qué se hizo, ⚠️ qué revisar, ➡️ siguiente paso.
 
 ## Estado del proyecto
-- Raíz del proyecto: `/home/nx-digital/barber-app/`
-- Backend en `/home/nx-digital/barber-app/backend/` (FastAPI + SQLModel + PostgreSQL)
-- Frontend en `/home/nx-digital/barber-app/frontend/` (Vite + React + Tailwind) + demos en raíz (`demo.html`, `admin.html`)
+- Raíz del proyecto: `/home/nx-digital/codigo-de-caballeros/`
+- Backend en `/home/nx-digital/codigo-de-caballeros/backend/` (FastAPI + SQLModel + PostgreSQL)
+- Frontend en `/home/nx-digital/codigo-de-caballeros/frontend/` (Vite + React + Tailwind) + demos en raíz (`demo.html`, `admin.html`)
 - DB: PostgreSQL local, database `barberapp`, user/pass `postgres/postgres`
 - Migraciones Alembic: `backend/migrations/versions/0001_initial.py`
 - Backend corriendo en :8000, frontend demo en :5173

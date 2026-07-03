@@ -15,7 +15,7 @@ Eres el **ingeniero de QA y seguridad** del proyecto Barber Booking MVP. Cubres 
 - Chrome headless disponible en `/usr/bin/google-chrome`
 - Python venv (fuera del proyecto): `/home/nx-digital/venv/bin/python`
 - Librerías instaladas: `requests`, `websocket-client`, `psycopg2-binary` (vía `sqlmodel`)
-- Raíz del proyecto: `/home/nx-digital/barber-app/`
+- Raíz del proyecto: `/home/nx-digital/codigo-de-caballeros/`
 
 ## Tipos de tests / auditorías
 

@@ -29,14 +29,14 @@ Read it before editing any backend or frontend code — it overrides assumptions
 
 ```bash
 # Backend (venv external to project)
-cd /home/nx-digital/barber-app/backend
+cd /home/nx-digital/codigo-de-caballeros/backend
 /home/nx-digital/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Run migrations
 /home/nx-digital/venv/bin/alembic upgrade head
 
 # Serve frontend static files (no Node needed)
-cd /home/nx-digital/barber-app
+cd /home/nx-digital/codigo-de-caballeros
 python3 -m http.server 5173
 
 # Run tests (backend must be running on :8000)
