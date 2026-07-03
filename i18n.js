@@ -194,7 +194,7 @@ const dict = {
     'settings.title': 'Configuración',
     'settings.horarios': 'Horarios',
     'settings.festivos': 'Festivos',
-    'settings.bloques': 'Bloqueos',
+    'settings.bloques': 'Falta de Disponibilidad',
     'settings.seasons_empty': 'Sin temporadas',
     'settings.seasons_empty_sub': 'Usando horario por defecto',
     'settings.add_season': 'Añadir temporada',
