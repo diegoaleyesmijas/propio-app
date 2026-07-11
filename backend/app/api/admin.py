@@ -1368,9 +1368,17 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+def _restart_backend():
+    """Restart the backend process after a short delay to let the response be sent."""
+    import time
+    time.sleep(0.5)
+    import os as _os
+    _os._exit(0)
+
 @router.post("/admin/change-password")
 def change_admin_password(
     payload: ChangePasswordRequest,
+    tasks: BackgroundTasks,
     _: bool = Depends(verify_admin),
 ):
     """Cambia la contraseña del admin en el .env y reinicia el backend."""
@@ -1382,10 +1390,20 @@ def change_admin_password(
         raise HTTPException(status_code=400, detail="La nueva contraseña debe tener al menos 6 caracteres")
 
     # Read and update .env file
-    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env")
-    env_path = os.path.abspath(env_path)
+    # Try multiple locations: backend/.env, project root .env, /app/.env (docker)
+    candidate_paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".env"),  # backend/.env
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", ".env"),  # project root
+        "/app/.env",  # inside Docker container
+    ]
+    env_path = None
+    for p in candidate_paths:
+        p = os.path.abspath(p)
+        if os.path.exists(p):
+            env_path = p
+            break
 
-    if not os.path.exists(env_path):
+    if not env_path:
         raise HTTPException(status_code=500, detail="No se encontró el archivo .env")
 
     try:
@@ -1403,10 +1421,14 @@ def change_admin_password(
         with open(env_path, "w") as f:
             f.write(updated)
 
-        logger.info(f"Admin password changed successfully (env: {env_path})")
+        logger.info(f"Admin password changed successfully (env: {env_path}) — restarting")
+
+        # Schedule restart AFTER the response is sent, so the frontend gets the success message
+        tasks.add_task(_restart_backend)
+
         return {
             "ok": True,
-            "message": "Contraseña actualizada. El cambio se aplicará al reiniciar el contenedor.",
+            "message": "Contraseña actualizada. El servidor se reiniciará automáticamente.",
         }
     except Exception as e:
         logger.error(f"Failed to update .env: {e}")

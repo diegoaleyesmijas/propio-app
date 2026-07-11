@@ -3138,8 +3138,6 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
       const res = await changeAdminPassword(pwCurrent, pwNew)
       setPwStatus({ type: 'success', text: res.message || 'Contraseña actualizada correctamente' })
       setPwCurrent(''); setPwNew(''); setPwConfirm('')
-      setShowPwForm(false)
-      // Trigger a toast notification too
       if (onToast) onToast(res.message || 'Contraseña actualizada')
     } catch (e) {
       setPwStatus({ type: 'error', text: e.message })
