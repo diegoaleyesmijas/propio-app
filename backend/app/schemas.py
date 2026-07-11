@@ -18,6 +18,25 @@ class ServiceCreate(BaseModel):
     price: float
     duration_minutes: int
     hex_color: Optional[str] = None
+    description: Optional[str] = None
+    active: Optional[bool] = True
+
+    @field_validator('hex_color')
+    @classmethod
+    def validate_hex_color(cls, v):
+        if v is not None:
+            if not re.match(r'^#[0-9A-Fa-f]{6}$', v):
+                raise ValueError('hex_color must be in format #RRGGBB')
+        return v
+
+
+class ServiceUpdate(BaseModel):
+    name: Optional[str] = None
+    price: Optional[float] = None
+    duration_minutes: Optional[int] = None
+    hex_color: Optional[str] = None
+    description: Optional[str] = None
+    active: Optional[bool] = None
 
     @field_validator('hex_color')
     @classmethod

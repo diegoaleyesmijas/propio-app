@@ -318,6 +318,48 @@ async function deleteBlock(token, id) {
   return r.json()
 }
 
+// ── Services CRUD ──
+
+async function getServicesAdmin(token) {
+  const r = await fetch(`${API}/admin/services`, { headers: _adminHeaders() })
+  if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
+  if (!r.ok) throw new Error('Error loading services')
+  return r.json()
+}
+
+async function createService(token, payload) {
+  const r = await fetch(`${API}/admin/services`, {
+    method: 'POST',
+    headers: _adminHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload)
+  })
+  if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.detail || 'Error creating service')
+  return data
+}
+
+async function updateService(token, id, payload) {
+  const r = await fetch(`${API}/admin/services/${id}`, {
+    method: 'PATCH',
+    headers: _adminHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload)
+  })
+  if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.detail || 'Error updating service')
+  return data
+}
+
+async function deleteService(token, id) {
+  const r = await fetch(`${API}/admin/services/${id}`, { method: 'DELETE', headers: _adminHeaders() })
+  if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
+  if (!r.ok) throw new Error('Error deleting service')
+  return r.json()
+}
+
+// ── Admin settings ──
+
 async function getAdminSettings(token) {
   const r = await fetch(`${API}/admin/settings`, { headers: _adminHeaders() })
   if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
@@ -3109,18 +3151,19 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
   return h('div', { className: 'pt-1 px-4 space-y-4 pb-24' },
     // Sub-tab navigation
     h('div', { className: 'flex gap-1 bg-stone-100 rounded-xl p-0.5' },
-      ['seasons', 'holidays', 'blocks'].map(sub => h('button', {
+      ['services', 'seasons', 'holidays', 'blocks'].map(sub => h('button', {
           key: sub,
           onClick: () => onSubTabChange(sub),
           className: 'flex-1 text-xs font-bold py-2 px-3 rounded-lg transition-all cursor-pointer ' +
             (settingsSubTab === sub ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700')
-        }, t('settings.' + (sub === 'seasons' ? 'horarios' : sub === 'holidays' ? 'festivos' : 'bloques')))
+        }, t('settings.' + (sub === 'services' ? 'servicios' : sub === 'seasons' ? 'horarios' : sub === 'holidays' ? 'festivos' : 'bloques')))
     )),
 
     // Sub-tab content
-    settingsSubTab === 'seasons' && h(SeasonsView, { token, onToast }),
+    settingsSubTab === 'services' && h(ServicesView, { token, onToast }),
+    settingsSubTab === 'seasons'  && h(SeasonsView, { token, onToast }),
     settingsSubTab === 'holidays' && h(HolidaysView, { token, onToast }),
-    settingsSubTab === 'blocks'    && h(BlocksView, { token, onToast }),
+    settingsSubTab === 'blocks'   && h(BlocksView, { token, onToast }),
 
     // Google Reviews section
     h('div', { className: 'bg-white rounded-2xl border border-stone-200 p-4' },
@@ -3749,6 +3792,230 @@ function BlocksView({ token, onToast }) {
           onClick: handleAdd, disabled: saving || !formDate,
           className: 'w-full py-3 rounded-2xl bg-propio-500 hover:bg-propio-600 text-white font-bold shadow-lg active:scale-[0.98] transition cursor-pointer disabled:opacity-50'
         }, saving ? t('settings.saving') : t('settings.save_season'))
+      )
+    )
+  )
+}
+
+// ── ServicesView ─────────────────────────────────────────────────────────
+
+function ServicesView({ token, onToast }) {
+  const [services, setServices] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editService, setEditService] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [feedback, setFeedback] = useState(null)
+
+  // Form state
+  const [formName, setFormName] = useState('')
+  const [formPrice, setFormPrice] = useState('')
+  const [formDuration, setFormDuration] = useState('')
+  const [formColor, setFormColor] = useState('#3B82F6')
+  const [formDescription, setFormDescription] = useState('')
+  const [formActive, setFormActive] = useState(true)
+
+  const resetForm = () => {
+    setFormName(''); setFormPrice(''); setFormDuration('')
+    setFormColor('#3B82F6'); setFormDescription(''); setFormActive(true)
+    setEditService(null); setFeedback(null)
+  }
+
+  const loadServices = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await getServicesAdmin(token)
+      setServices(data || [])
+    } catch (e) {
+      setFeedback({ type: 'error', text: e.message })
+    } finally { setLoading(false) }
+  }, [token])
+
+  useEffect(() => { loadServices() }, [loadServices])
+
+  const openEdit = (service) => {
+    setEditService(service)
+    setFormName(service.name)
+    setFormPrice(String(service.price))
+    setFormDuration(String(service.duration_minutes))
+    setFormColor(service.hex_color || '#3B82F6')
+    setFormDescription(service.description || '')
+    setFormActive(service.active)
+    setShowModal(true)
+    setFeedback(null)
+  }
+
+  const handleSave = async () => {
+    if (!formName.trim() || !formPrice || !formDuration) return
+    setSaving(true); setFeedback(null)
+    try {
+      const payload = {
+        name: formName.trim(),
+        price: parseFloat(formPrice),
+        duration_minutes: parseInt(formDuration),
+        hex_color: formColor,
+        description: formDescription.trim() || null,
+        active: formActive,
+      }
+      if (editService) await updateService(token, editService.id, payload)
+      else await createService(token, payload)
+      setFeedback({ type: 'success', text: t('settings.service_saved') })
+      setShowModal(false); resetForm(); loadServices()
+    } catch (e) { setFeedback({ type: 'error', text: e.message }) }
+    finally { setSaving(false) }
+  }
+
+  const handleToggleActive = async (service) => {
+    try {
+      await updateService(token, service.id, { active: !service.active })
+      loadServices()
+    } catch (e) { setFeedback({ type: 'error', text: e.message }) }
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm(t('settings.delete_service_confirm'))) return
+    try { await deleteService(token, id); loadServices() }
+    catch (e) { setFeedback({ type: 'error', text: e.message }) }
+  }
+
+  if (loading) return h(LoadingSkeleton)
+
+  return h('div', null,
+    feedback && feedback.type === 'success' && h('p', {
+      className: 'text-xs text-green-700 bg-green-100 rounded-xl px-3 py-2 mb-3'
+    }, feedback.text),
+    feedback && feedback.type === 'error' && h('p', {
+      className: 'text-xs text-red-700 bg-red-100 rounded-xl px-3 py-2 mb-3'
+    }, feedback.text),
+
+    // Header
+    h('div', { className: 'flex items-center justify-between mb-3' },
+      h('h3', { className: 'font-bold text-sm text-stone-700' }, t('settings.servicios')),
+      h('button', {
+        onClick: () => { resetForm(); setShowModal(true) },
+        className: 'text-xs font-bold py-2.5 px-3 rounded-xl bg-propio-500 hover:bg-propio-600 text-white shadow active:scale-[0.98] transition cursor-pointer'
+      }, t('settings.add_service'))
+    ),
+
+    // Empty or list
+    services.length === 0
+      ? h(EmptyState, { title: t('settings.services_empty'), sub: t('settings.services_empty_sub') })
+      : h('div', { className: 'space-y-2' },
+          services.map(s => h('div', { key: s.id, className: 'bg-white rounded-xl border border-stone-200 p-3 flex items-center gap-3' },
+            // Color indicator
+            h('div', {
+              className: 'w-4 h-4 rounded-full shrink-0',
+              style: { backgroundColor: s.hex_color || '#CBD5E1' }
+            }),
+            // Service info
+            h('div', { className: 'flex-1 min-w-0' },
+              h('p', { className: 'font-bold text-sm truncate' }, s.name),
+              h('p', { className: 'text-xs text-stone-400' },
+                s.price.toFixed(2) + '€ · ' + s.duration_minutes + 'min' + (s.active ? '' : ' · ' + t('settings.service_inactive'))
+              )
+            ),
+            // Active toggle
+            h('button', {
+              onClick: () => handleToggleActive(s),
+              className: 'text-[10px] font-bold py-1.5 px-2.5 rounded-lg transition cursor-pointer active:scale-[0.98] ' +
+                (s.active
+                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                  : 'bg-stone-100 text-stone-400 hover:bg-stone-200')
+            }, s.active ? t('settings.service_active') : t('settings.service_inactive')),
+            // Edit button
+            h('button', {
+              onClick: () => openEdit(s),
+              className: 'text-[10px] font-bold py-1.5 px-2.5 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200 transition cursor-pointer active:scale-[0.98]'
+            }, t('settings.edit_service'))
+          ))
+        ),
+
+    // ── Modal (create/edit) ──
+    showModal && h('div', {
+      className: 'fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center',
+      onClick: (e) => { if (e.target === e.currentTarget) { setShowModal(false); resetForm() } }
+    },
+      h('div', { className: 'bg-stone-50 w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto p-5 relative' },
+        h('button', {
+          onClick: () => { setShowModal(false); resetForm() },
+          className: 'absolute top-4 right-4 w-8 h-8 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-500 active:scale-[0.98] cursor-pointer'
+        }, h(SvgClose)),
+
+        h('h3', { className: 'font-bold text-base text-stone-800 mb-4' },
+          editService ? t('settings.edit_service') : t('settings.add_service')),
+
+        // Name
+        h('div', { className: 'mb-3' },
+          h('label', { className: 'text-xs font-semibold text-stone-500 ml-1' }, t('settings.service_name')),
+          h('input', {
+            type: 'text', value: formName, onChange: e => setFormName(e.target.value),
+            placeholder: t('settings.service_name'),
+            className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
+          })
+        ),
+
+        // Price + Duration row
+        h('div', { className: 'grid grid-cols-2 gap-2 mb-3' },
+          h('div', null,
+            h('label', { className: 'text-xs font-semibold text-stone-500 ml-1' }, t('settings.service_price')),
+            h('input', {
+              type: 'number', step: '0.01', min: '0', value: formPrice,
+              onChange: e => setFormPrice(e.target.value),
+              className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
+            })
+          ),
+          h('div', null,
+            h('label', { className: 'text-xs font-semibold text-stone-500 ml-1' }, t('settings.service_duration')),
+            h('input', {
+              type: 'number', min: '1', value: formDuration,
+              onChange: e => setFormDuration(e.target.value),
+              className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
+            })
+          )
+        ),
+
+        // Color
+        h('div', { className: 'mb-3' },
+          h('label', { className: 'text-xs font-semibold text-stone-500 ml-1' }, t('settings.service_color')),
+          h('input', {
+            type: 'color', value: formColor, onChange: e => setFormColor(e.target.value),
+            className: 'w-full h-10 rounded-xl bg-white border border-stone-200 mt-1 cursor-pointer'
+          })
+        ),
+
+        // Description
+        h('div', { className: 'mb-3' },
+          h('label', { className: 'text-xs font-semibold text-stone-500 ml-1' }, t('settings.service_description')),
+          h('textarea', {
+            value: formDescription, onChange: e => setFormDescription(e.target.value),
+            placeholder: t('settings.service_description_ph'),
+            rows: 3,
+            className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1 resize-none'
+          })
+        ),
+
+        // Active toggle
+        h('div', { className: 'mb-4' },
+          h('div', { className: 'flex gap-2' },
+            h('button', {
+              onClick: () => setFormActive(true),
+              className: 'flex-1 py-2 rounded-xl text-xs font-bold transition active:scale-[0.98] cursor-pointer ' +
+                (formActive ? 'bg-green-500 text-white shadow-sm' : 'bg-white border border-stone-200 text-stone-600')
+            }, t('settings.service_active')),
+            h('button', {
+              onClick: () => setFormActive(false),
+              className: 'flex-1 py-2 rounded-xl text-xs font-bold transition active:scale-[0.98] cursor-pointer ' +
+                (!formActive ? 'bg-stone-400 text-white shadow-sm' : 'bg-white border border-stone-200 text-stone-600')
+            }, t('settings.service_inactive'))
+          )
+        ),
+
+        // Submit
+        h('button', {
+          onClick: handleSave,
+          disabled: saving || !formName.trim() || !formPrice || !formDuration,
+          className: 'w-full py-3 rounded-2xl bg-propio-500 hover:bg-propio-600 text-white font-bold shadow-lg active:scale-[0.98] transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2'
+        }, saving ? t('settings.saving') : t('settings.save_service'))
       )
     )
   )

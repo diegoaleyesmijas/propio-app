@@ -25,7 +25,7 @@ class ImportRequest(BaseModel):
 
 from app.db.database import get_session
 from app.db.models import Client, Appointment
-from app.schemas import AdminBookingCreate, ResetDemoRequest, ResetDemoResponse
+from app.schemas import AdminBookingCreate, ResetDemoRequest, ResetDemoResponse, ServiceCreate, ServiceUpdate
 from app.core.config import settings, TZ
 from app.core.logic import create_appointment
 from app.core.email import background_send_confirmation, background_send_cancellation
@@ -1246,6 +1246,118 @@ def unregister_push_subscription(
         db.delete(existing)
         db.commit()
         logger.info(f"Push subscription removed: {existing.id}")
+    return {"ok": True}
+
+
+# ── Services CRUD ──
+
+@router.get("/admin/services")
+def admin_list_services(db: Session = Depends(get_session)):
+    """List all services (including inactive)."""
+    rows = db.execute(
+        text("SELECT id, name, price, duration_minutes, hex_color, description, active FROM services ORDER BY id")
+    ).fetchall()
+    return [
+        {
+            "id": r[0],
+            "name": r[1],
+            "price": float(r[2]),
+            "duration_minutes": r[3],
+            "hex_color": r[4],
+            "description": r[5],
+            "active": r[6],
+        }
+        for r in rows
+    ]
+
+
+@router.post("/admin/services")
+def admin_create_service(payload: ServiceCreate, db: Session = Depends(get_session)):
+    """Create a new service."""
+    from datetime import date as _date
+    # Validate hex_color if provided
+    if payload.hex_color:
+        if not re.match(r'^#[0-9A-Fa-f]{6}$', payload.hex_color):
+            raise HTTPException(status_code=400, detail="hex_color must be in format #RRGGBB")
+
+    result = db.execute(
+        text("""
+            INSERT INTO services (name, price, duration_minutes, hex_color, description, active)
+            VALUES (:name, :price, :duration, :color, :desc, :active)
+            RETURNING id
+        """),
+        {
+            "name": payload.name,
+            "price": payload.price,
+            "duration": payload.duration_minutes,
+            "color": payload.hex_color,
+            "desc": payload.description,
+            "active": payload.active if payload.active is not None else True,
+        }
+    ).first()
+    db.commit()
+    return {"ok": True, "id": result[0]}
+
+
+@router.patch("/admin/services/{service_id}")
+def admin_update_service(service_id: int, payload: ServiceUpdate, db: Session = Depends(get_session)):
+    """Update a service (partial)."""
+    existing = db.execute(
+        text("SELECT id FROM services WHERE id = :id"),
+        {"id": service_id}
+    ).first()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Service not found")
+
+    updates = []
+    params = {"id": service_id}
+
+    if payload.name is not None:
+        updates.append("name = :name")
+        params["name"] = payload.name
+    if payload.price is not None:
+        updates.append("price = :price")
+        params["price"] = payload.price
+    if payload.duration_minutes is not None:
+        updates.append("duration_minutes = :duration")
+        params["duration"] = payload.duration_minutes
+    if payload.hex_color is not None:
+        if not re.match(r'^#[0-9A-Fa-f]{6}$', payload.hex_color):
+            raise HTTPException(status_code=400, detail="hex_color must be in format #RRGGBB")
+        updates.append("hex_color = :color")
+        params["color"] = payload.hex_color
+    if payload.description is not None:
+        updates.append("description = :desc")
+        params["desc"] = payload.description
+    if payload.active is not None:
+        updates.append("active = :active")
+        params["active"] = payload.active
+
+    if updates:
+        db.execute(
+            text(f"UPDATE services SET {', '.join(updates)} WHERE id = :id"),
+            params
+        )
+        db.commit()
+
+    return {"ok": True}
+
+
+@router.delete("/admin/services/{service_id}")
+def admin_delete_service(service_id: int, db: Session = Depends(get_session)):
+    """Soft-delete a service (set active=false)."""
+    existing = db.execute(
+        text("SELECT id FROM services WHERE id = :id"),
+        {"id": service_id}
+    ).first()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Service not found")
+
+    db.execute(
+        text("UPDATE services SET active = FALSE WHERE id = :id"),
+        {"id": service_id}
+    )
+    db.commit()
     return {"ok": True}
 
 
