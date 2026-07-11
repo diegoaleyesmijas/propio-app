@@ -67,6 +67,8 @@ docker compose build backend nginx && docker compose up -d
 | **Rate limit** | SlowAPI in-memory, 5/min on `POST /book`, configurable via `RATE_LIMIT_BOOK` |
 | **ADMIN_PASSWORD** | No default — `.env` required, app crashes at startup if empty |
 | **Reset demo** | `RESET_DEMO_ALLOWED=true` env var required; default is `false` |
+| **Business hours** | L–V: `10:00–14:00` + `16:30–20:30` (partido). S: `10:00–15:30` (continuo). D: cerrado. Fuente: `config.py:BUSINESS_HOURS`. Temporada activa en DB sobrescribe. |
+| **Producción VPS** | IP `148.230.108.27`, Hostinger. SSH key `~/.ssh/id_ed25519`. Proyecto en `/opt/codigo-de-caballeros/`. Deploy: el agente conecta por SSH, edita archivos si aplica, `docker compose build backend && docker compose up -d`. Los frontends estáticos se sirven desde nginx, el build los incluye. |
 
 ---
 

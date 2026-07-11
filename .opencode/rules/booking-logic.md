@@ -10,6 +10,7 @@ Estas reglas se aplican a **cualquier sesión de opencode** que trabaje en este 
 4. **Estados válidos**: `booked → completed|cancelled`. Prohibido `cancelled → booked`. Prohibido `completed → *`.
 5. **Cancelación por cliente**: bloqueada si faltan < `CANCELLATION_WINDOW_HOURS` (24h por defecto).
 6. **Notificaciones**: usar el campo `notification_status` con valores `pending|sent|skipped_no_email|failed`. NO usar `reminder_sent: bool`.
+7. **Horarios de atención**: L–V `10:00–14:00` y `16:30–20:30` (partido). S `10:00–15:30` (continuo). D cerrado. Definido en `config.py:BUSINESS_HOURS`. Temporadas activas en DB (`seasonal_schedules`) sobrescriben. Si hay temporada activa, editarla vía admin panel o SQL. Si no, editar `config.py` + rebuild Docker.
 
 ## Convenciones de código
 
@@ -59,6 +60,12 @@ python3 -m http.server 5173
 curl http://localhost:8000/services
 PGPASSWORD=postgres psql -U postgres -h localhost -d barberapp
 ```
+
+## Producción
+
+- **VPS**: `148.230.108.27` (Hostinger), SSH key `~/.ssh/id_ed25519`, proyecto en `/opt/codigo-de-caballeros/`
+- **Deploy**: el agente conecta por SSH, edita archivos si aplica, luego `docker compose build backend && docker compose up -d`
+- **Frontends estáticos**: se sirven desde nginx, el build los incluye. Editar `admin.js`, `demo.js`, etc. requiere rebuild.
 
 ## Deudas conocidas (no resolver en MVP)
 

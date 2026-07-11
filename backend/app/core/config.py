@@ -18,8 +18,8 @@ class Settings(BaseSettings):
         1: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 30))],
         2: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 30))],
         3: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 30))],
-        4: [(time(10, 15), time(15, 30))],
-        5: [],
+        4: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 30))],
+        5: [(time(10, 0), time(15, 30))],
         6: [],
     }
     SLOT_INTERVAL_MINUTES: int = 30
