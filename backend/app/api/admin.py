@@ -3,7 +3,7 @@ import os
 import re
 logger = logging.getLogger("admin")
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, Query, File, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select
 from sqlalchemy import text, or_
@@ -278,6 +278,107 @@ def admin_import_clients(payload: ImportClientsRequest, db: Session = Depends(ge
         "updated": updated,
         "skipped": skipped,
         "total": created + updated + skipped,
+    }
+
+
+@router.post("/admin/clients/import-excel")
+async def admin_import_clients_excel(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_session),
+    _: str = Depends(verify_admin),
+):
+    """Import clients from Excel (.xlsx/.xls) Booksy export. Deduplicates by phone."""
+    import openpyxl
+    import io
+
+    # Validate file type
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Formato no soportado. Sube un archivo .xlsx o .xls")
+
+    try:
+        content = await file.read()
+        wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error al leer el archivo: {str(e)}")
+
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="El archivo está vacío")
+
+    # Auto-detect columns by header name
+    headers = [str(h).lower().strip() if h else '' for h in rows[0]]
+    col_map = {}
+    for i, h in enumerate(headers):
+        if h in ('name', 'nombre', 'client_name', 'client'):
+            col_map['name'] = i
+        elif h in ('cell_phone', 'phone', 'telefono', 'teléfono', 'mobile', 'celular'):
+            col_map['phone'] = i
+        elif h in ('email', 'correo', 'e-mail', 'mail'):
+            col_map['email'] = i
+
+    if 'name' not in col_map or 'phone' not in col_map:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Columnas requeridas no encontradas (name, cell_phone). Columnas detectadas: {headers}"
+        )
+
+    created = 0
+    updated = 0
+    skipped = 0
+    errors = []
+
+    for i, row in enumerate(rows[1:], start=2):
+        try:
+            name = str(row[col_map['name']] or '').strip()
+            phone = str(row[col_map['phone']] or '').strip()
+            email = str(row[col_map['email']]).strip() if col_map.get('email') is not None and row[col_map['email']] else None
+
+            if not name or not phone:
+                skipped += 1
+                continue
+
+            # Normalize phone for matching
+            phone_clean = phone.replace(" ", "").replace("-", "").replace("+", "")
+            existing = db.execute(
+                select(Client).where(
+                    text("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') = :p"),
+                ),
+                {"p": phone_clean},
+            ).scalar_one_or_none()
+
+            if existing:
+                changed = False
+                if existing.name != name:
+                    existing.name = name
+                    changed = True
+                if email and existing.email != email:
+                    existing.email = email
+                    changed = True
+                if changed:
+                    db.add(existing)
+                    updated += 1
+                else:
+                    skipped += 1
+            else:
+                client = Client(name=name, phone=phone, email=email)
+                db.add(client)
+                created += 1
+        except Exception as e:
+            errors.append(f"Fila {i}: {str(e)}")
+            skipped += 1
+
+    db.commit()
+    wb.close()
+
+    return {
+        "ok": True,
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "total": created + updated + skipped,
+        "errors": errors[:10],  # max 10 errors
     }
 
 

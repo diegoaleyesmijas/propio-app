@@ -358,6 +358,22 @@ async function deleteService(token, id) {
   return r.json()
 }
 
+// ── Client Excel Import ──
+
+async function importClientsExcel(token, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const r = await fetch(`${API}/admin/clients/import-excel`, {
+    method: 'POST',
+    headers: _adminHeaders(),
+    body: formData
+  })
+  if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.detail || 'Error importing clients')
+  return data
+}
+
 // ── Admin settings ──
 
 async function getAdminSettings(token) {
@@ -4164,6 +4180,11 @@ function AdminPanel() {
   const [busyId, setBusyId] = useState(null)
   const [detailModalAppt, setDetailModalAppt] = useState(null)
 
+  // Client import state
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState(null)
+
   // Notifications
   const [notifications, setNotifications] = useState([])
   const [newNotifCount, setNewNotifCount] = useState(0)
@@ -4962,24 +4983,30 @@ function AdminPanel() {
               ),
               h('div', { className: 'flex items-center justify-between' },
                 h('p', { className: 'text-xs sm:text-sm text-stone-500 mb-2' }, t('admin.registered', clients.length)),
-                h('a', {
-                  href: `${API}/admin/clients/export`,
-                  download: 'clientes.csv',
-                  className: 'text-xs font-bold text-propio-500 bg-propio-50 px-3 py-1.5 rounded-full hover:bg-propio-100 transition mb-3',
-                  onClick: (e) => {
-                    e.preventDefault()
-                    fetch(`${API}/admin/clients/export`, { headers: _adminHeaders() })
-                      .then(r => r.blob())
-                      .then(blob => {
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url; a.download = 'clientes.csv'
-                        document.body.appendChild(a); a.click()
-                        document.body.removeChild(a)
-                        URL.revokeObjectURL(url)
-                      })
-                  }
-                }, t('admin.export_clients'))
+                h('div', { className: 'flex gap-2 mb-3' },
+                  h('button', {
+                    onClick: () => { setShowImportModal(true); setImportResult(null) },
+                    className: 'text-xs font-bold text-stone-600 bg-stone-100 px-3 py-1.5 rounded-full hover:bg-stone-200 transition'
+                  }, t('admin.import_excel')),
+                  h('a', {
+                    href: `${API}/admin/clients/export`,
+                    download: 'clientes.csv',
+                    className: 'text-xs font-bold text-propio-500 bg-propio-50 px-3 py-1.5 rounded-full hover:bg-propio-100 transition',
+                    onClick: (e) => {
+                      e.preventDefault()
+                      fetch(`${API}/admin/clients/export`, { headers: _adminHeaders() })
+                        .then(r => r.blob())
+                        .then(blob => {
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url; a.download = 'clientes.csv'
+                          document.body.appendChild(a); a.click()
+                          document.body.removeChild(a)
+                          URL.revokeObjectURL(url)
+                        })
+                    }
+                  }, t('admin.export_clients'))
+                )
               ),
 
               // ── Filter pills ──
@@ -5127,6 +5154,102 @@ function AdminPanel() {
             )
       )
     ,
+
+    // ── Import Excel Modal ──
+    showImportModal && h('div', {
+      className: 'fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center',
+      onClick: (e) => { if (e.target === e.currentTarget && !importing) { setShowImportModal(false); setImportResult(null) } }
+    },
+      h('div', { className: 'bg-stone-50 w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-y-auto p-5 relative' },
+        h('button', {
+          onClick: () => { if (!importing) { setShowImportModal(false); setImportResult(null) } },
+          className: 'absolute top-4 right-4 w-8 h-8 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-500 active:scale-[0.98] cursor-pointer'
+        }, h(SvgClose)),
+        h('h3', { className: 'font-bold text-base text-stone-800 mb-4' }, t('admin.import_excel_title')),
+
+        !importResult && !importing && h('div', null,
+          h('p', { className: 'text-sm text-stone-500 mb-4' }, t('admin.import_excel_desc')),
+          h('label', { className: 'block w-full py-8 border-2 border-dashed border-stone-300 rounded-2xl text-center cursor-pointer hover:border-propio-500 hover:bg-propio-50/30 transition' },
+            h('input', {
+              type: 'file', accept: '.xlsx,.xls,.csv',
+              className: 'hidden',
+              onChange: (e) => {
+                const file = e.target.files[0]
+                if (!file) return
+                setImporting(true)
+                importClientsExcel(_getToken(), file)
+                  .then(result => { setImportResult(result) })
+                  .catch(err => { setImportResult({ ok: false, error: err.message }) })
+                  .finally(() => { setImporting(false) })
+              }
+            }),
+            h('div', { className: 'flex flex-col items-center gap-2' },
+              h('svg', { className: 'w-8 h-8 text-stone-400', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '1.5' },
+                h('path', { d: 'M12 16V4m0 0l-4 4m4-4l4 4', strokeLinecap: 'round', strokeLinejoin: 'round' }),
+                h('path', { d: 'M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17', strokeLinecap: 'round', strokeLinejoin: 'round' })
+              ),
+              h('p', { className: 'text-sm font-semibold text-stone-600' }, t('admin.import_excel_select')),
+              h('p', { className: 'text-[10px] text-stone-400' }, t('admin.import_excel_hint'))
+            )
+          )
+        ),
+
+        importing && h('div', { className: 'text-center py-8' },
+          h('div', { className: 'w-8 h-8 border-3 border-propio-500 border-t-transparent rounded-full animate-spin mx-auto mb-3' }),
+          h('p', { className: 'text-sm text-stone-500' }, t('admin.import_excel_loading'))
+        ),
+
+        importResult && h('div', null,
+          importResult.ok
+            ? h('div', null,
+                h('div', { className: 'text-center mb-4' },
+                  h('div', { className: 'w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3' },
+                    h('svg', { className: 'w-6 h-6 text-emerald-600', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2.5' },
+                      h('polyline', { points: '20 6 9 17 4 12' })
+                    )
+                  ),
+                  h('p', { className: 'font-bold text-stone-800' }, t('admin.import_excel_success'))
+                ),
+                h('div', { className: 'bg-white rounded-xl border border-stone-200 p-4 space-y-2 mb-4' },
+                  h('div', { className: 'flex justify-between text-sm' },
+                    h('span', { className: 'text-stone-500' }, t('admin.import_created')),
+                    h('span', { className: 'font-bold text-emerald-600' }, importResult.created)
+                  ),
+                  h('div', { className: 'flex justify-between text-sm' },
+                    h('span', { className: 'text-stone-500' }, t('admin.import_updated')),
+                    h('span', { className: 'font-bold text-blue-600' }, importResult.updated)
+                  ),
+                  h('div', { className: 'flex justify-between text-sm' },
+                    h('span', { className: 'text-stone-500' }, t('admin.import_skipped')),
+                    h('span', { className: 'font-bold text-stone-400' }, importResult.skipped)
+                  )
+                ),
+                importResult.errors && importResult.errors.length > 0 && h('div', { className: 'bg-red-50 rounded-xl border border-red-200 p-3 mb-4' },
+                  h('p', { className: 'text-xs font-bold text-red-700 mb-1' }, t('admin.import_errors')),
+                  importResult.errors.map((err, i) => h('p', { key: i, className: 'text-[10px] text-red-600' }, err))
+                ),
+                h('button', {
+                  onClick: () => { setShowImportModal(false); setImportResult(null); loadClients() },
+                  className: 'w-full py-3 rounded-2xl bg-propio-500 hover:bg-propio-600 text-white font-bold shadow-lg active:scale-[0.98] transition cursor-pointer'
+                }, t('admin.import_close'))
+              )
+            : h('div', { className: 'text-center py-4' },
+                h('div', { className: 'w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3' },
+                  h('svg', { className: 'w-6 h-6 text-red-500', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: '2' },
+                    h('line', { x1: '18', y1: '6', x2: '6', y2: '18' }),
+                    h('line', { x1: '6', y1: '6', x2: '18', y2: '18' })
+                  )
+                ),
+                h('p', { className: 'font-bold text-red-700 mb-1' }, t('admin.import_excel_error')),
+                h('p', { className: 'text-sm text-red-500 mb-4' }, importResult.error || 'Error desconocido'),
+                h('button', {
+                  onClick: () => { setImportResult(null) },
+                  className: 'w-full py-3 rounded-2xl bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold active:scale-[0.98] transition cursor-pointer'
+                }, t('admin.import_retry'))
+              )
+        )
+      )
+    ),
 
     // ── Dashboard ──
     tab === 'dashboard' && h('section', null,
