@@ -25,6 +25,17 @@ def list_services(db: Session = Depends(get_session)):
     return services
 
 
+@router.get("/settings")
+def get_public_settings():
+    """Public settings for the booking page (reviews badge, WhatsApp)."""
+    return {
+        "google_place_id": settings.GOOGLE_PLACE_ID or None,
+        "google_rating": settings.GOOGLE_RATING or None,
+        "google_review_count": settings.GOOGLE_REVIEW_COUNT or None,
+        "whatsapp_number": settings.WHATSAPP_NUMBER or None,
+    }
+
+
 @router.get("/available-slots")
 def available_slots(service_id: int, date: str, db: Session = Depends(get_session)):
     from datetime import date as _date

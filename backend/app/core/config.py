@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     GOOGLE_PLACE_ID: str = ""
     GOOGLE_MAPS_API_KEY: str = ""
 
+    # Google Reviews badge (manual — no API needed)
+    GOOGLE_RATING: str = ""       # e.g. "4.8"
+    GOOGLE_REVIEW_COUNT: str = "" # e.g. "200"
+
+    # WhatsApp contact number (international format without +)
+    # Ej: "34600000000"
+    WHATSAPP_NUMBER: str = ""
+
     # Web Push (VAPID) — notificaciones push reales en móvil
     VAPID_PUBLIC_KEY: str = ""
     VAPID_PRIVATE_KEY: str = ""

@@ -2983,6 +2983,9 @@ function ResetDemoSection() {
 
 function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
   const [googlePlaceId, setGooglePlaceId] = useState('')
+  const [googleRating, setGoogleRating] = useState('')
+  const [googleReviewCount, setGoogleReviewCount] = useState('')
+  const [whatsappNumber, setWhatsappNumber] = useState('')
   const [googleSaved, setGoogleSaved] = useState(false)
   const [savingGoogle, setSavingGoogle] = useState(false)
   const [googleError, setGoogleError] = useState(null)
@@ -3000,7 +3003,12 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
 
   useEffect(() => {
     getAdminSettings(token)
-      .then(data => { if (data.google_place_id) setGooglePlaceId(data.google_place_id) })
+      .then(data => {
+        if (data.google_place_id) setGooglePlaceId(data.google_place_id)
+        if (data.google_rating) setGoogleRating(data.google_rating)
+        if (data.google_review_count) setGoogleReviewCount(data.google_review_count)
+        if (data.whatsapp_number) setWhatsappNumber(data.whatsapp_number)
+      })
       .catch(() => {})
   }, [token])
 
@@ -3125,7 +3133,12 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
   const handleSaveGoogle = async () => {
     setSavingGoogle(true); setGoogleError(null)
     try {
-      await updateAdminSettings(token, { google_place_id: googlePlaceId || null })
+      await updateAdminSettings(token, {
+        google_place_id: googlePlaceId || null,
+        google_rating: googleRating || null,
+        google_review_count: googleReviewCount || null,
+        whatsapp_number: whatsappNumber || null,
+      })
       setGoogleSaved(true)
       setTimeout(() => setGoogleSaved(false), 2500)
     } catch (e) {
@@ -3182,7 +3195,7 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
     // Google Reviews section
     h('div', { className: 'bg-white rounded-2xl border border-stone-200 p-4' },
       h('p', { className: 'text-[10px] font-bold uppercase tracking-wider text-stone-500 mb-3' }, t('settings.google_reviews')),
-      h('div', { className: 'flex gap-2' },
+      h('div', { className: 'flex gap-2 mb-2' },
         h('input', {
           type: 'text', value: googlePlaceId,
           onChange: e => setGooglePlaceId(e.target.value),
@@ -3193,6 +3206,35 @@ function SettingsPanel({ settingsSubTab, onSubTabChange, token, onToast }) {
           onClick: handleSaveGoogle, disabled: savingGoogle,
           className: 'shrink-0 px-3 py-2 rounded-xl bg-propio-500 hover:bg-propio-600 text-white font-bold text-xs shadow active:scale-[0.98] transition cursor-pointer disabled:opacity-50 whitespace-nowrap'
         }, googleSaved ? t('settings.google_saved') : t('crm.save'))
+      ),
+      h('div', { className: 'grid grid-cols-2 gap-2 mb-2' },
+        h('div', null,
+          h('label', { className: 'text-[10px] font-bold text-stone-400 ml-1' }, t('settings.rating')),
+          h('input', {
+            type: 'text', value: googleRating,
+            onChange: e => setGoogleRating(e.target.value),
+            placeholder: '4.8',
+            className: 'w-full px-3 py-2 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-0.5'
+          })
+        ),
+        h('div', null,
+          h('label', { className: 'text-[10px] font-bold text-stone-400 ml-1' }, t('settings.review_count')),
+          h('input', {
+            type: 'text', value: googleReviewCount,
+            onChange: e => setGoogleReviewCount(e.target.value),
+            placeholder: '200',
+            className: 'w-full px-3 py-2 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-0.5'
+          })
+        )
+      ),
+      h('div', { className: 'mb-2' },
+        h('label', { className: 'text-[10px] font-bold text-stone-400 ml-1' }, t('settings.whatsapp_number')),
+        h('input', {
+          type: 'text', value: whatsappNumber,
+          onChange: e => setWhatsappNumber(e.target.value),
+          placeholder: '34600000000',
+          className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-0.5'
+        })
       ),
       googleError && h('p', { className: 'text-xs text-red-600 mt-1' }, googleError),
       googlePlaceId && h('a', {

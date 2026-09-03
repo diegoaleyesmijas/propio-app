@@ -10,8 +10,9 @@ let _memoryLang = null
 const dict = {
   es: {
     brand: 'Código de Caballeros Salon',
-
-    // Header / steps (demo)
+    'booking.reviews_badge': '{0} · {1} reseñas en Google',
+    'booking.whatsapp': 'Contactar por WhatsApp',
+    'booking.whatsapp_msg': 'Hola! Quiero hacer una reserva.',
     'step.service': 'Elige tu servicio',
     'step.slot': 'Elige día y hora',
     'step.form': 'Tus datos',
@@ -256,6 +257,9 @@ const dict = {
     'settings.google_ph': 'ChIJN1t_tDeuEmsRUsoyG83frY4',
     'settings.google_saved': 'Guardado',
     'settings.view_reviews': 'Ver en Google →',
+    'settings.rating': 'Puntuación',
+    'settings.review_count': 'Cantidad de reseñas',
+    'settings.whatsapp_number': 'Número de WhatsApp',
     'settings.reset_demo': 'Resetear datos demo',
     'settings.reset_demo_desc': 'Borra todas las citas y clientes marcados como demo. No afecta a datos reales.',
     'settings.reset_demo_confirm': '¿Resetear todos los datos demo? Esta acción no se puede deshacer.',
@@ -411,6 +415,9 @@ const dict = {
 
   en: {
     brand: 'Código de Caballeros Salon',
+    'booking.reviews_badge': '{0} · {1} reviews on Google',
+    'booking.whatsapp': 'Contact via WhatsApp',
+    'booking.whatsapp_msg': 'Hi! I want to make a reservation.',
 
     'step.service': 'Choose your service',
     'step.slot': 'Choose day and time',
@@ -672,6 +679,9 @@ const dict = {
     'settings.google_ph': 'ChIJN1t_tDeuEmsRUsoyG83frY4',
     'settings.google_saved': 'Saved',
     'settings.view_reviews': 'View on Google →',
+    'settings.rating': 'Rating',
+    'settings.review_count': 'Review count',
+    'settings.whatsapp_number': 'WhatsApp number',
     'settings.reset_demo': 'Reset demo data',
     'settings.reset_demo_desc': 'Deletes all demo-marked appointments and clients. Real data is not affected.',
     'settings.reset_demo_confirm': 'Reset all demo data? This action cannot be undone.',

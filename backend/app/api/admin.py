@@ -1270,6 +1270,9 @@ def admin_get_settings():
     return {
         "google_place_id": settings.GOOGLE_PLACE_ID,
         "google_maps_api_key": settings.GOOGLE_MAPS_API_KEY,
+        "google_rating": settings.GOOGLE_RATING,
+        "google_review_count": settings.GOOGLE_REVIEW_COUNT,
+        "whatsapp_number": settings.WHATSAPP_NUMBER,
         "vapid_public_key": settings.VAPID_PUBLIC_KEY,
     }
 
@@ -1277,7 +1280,11 @@ def admin_get_settings():
 @router.patch("/admin/settings")
 def admin_update_settings(payload: dict):
     """Update settings (only allowed keys). Updates are in-memory only for MVP."""
-    allowed = {"google_place_id", "google_maps_api_key"}
+    allowed = {
+        "google_place_id", "google_maps_api_key",
+        "google_rating", "google_review_count",
+        "whatsapp_number",
+    }
     updated = {}
     for key in allowed:
         if key in payload:
