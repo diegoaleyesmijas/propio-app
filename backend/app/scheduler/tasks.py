@@ -31,7 +31,7 @@ async def send_reminders():
                         ELSE 'pending'
                     END
                 WHERE status = 'booked'
-                  AND notification_status IN ('pending', 'sent')
+                  AND notification_status = 'pending'
                   AND lower(slot) BETWEEN :now AND :window_end
                 RETURNING id, token_uuid, customer_name, customer_email,
                           customer_phone, lower(slot) AS start_time,
