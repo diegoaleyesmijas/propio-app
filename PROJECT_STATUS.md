@@ -359,6 +359,28 @@ ADMIN_PANEL_URL=https://codigodecaballeros.site/admin.html
 
 ---
 
+## Incidente SSL (2026-10-06) — Resuelto
+
+**Síntoma:** `ERR_FAILED` en `codigodecaballeros.site/admin.html` y en `propio-app.cloud` (demo) desde el 2026-10-01. El navegador bloqueaba por certificado caducado.
+
+**Diagnóstico (verificado):**
+- Servidor vivo (HTTP 301 desde el 80, puerto 443 abierto, contenedores Docker `Up`)
+- Certificado en disco VÁLIDO desde la renovación del 2026-09-01 (expira 2026-11-30)
+- **nginx servía el certificado vencido de julio** — contenedor llevaba 2 meses sin recargar (`Up 2 months`), la renovación de septiembre se hizo en disco pero nadie recargó nginx.
+
+**Corrección aplicada:**
+1. `docker exec codigo-nginx nginx -s reload` → cert válido en servicio (verificado con curl: HTTP 200 en admin.html, reservar.html y demo)
+2. **Causa raíz:** no existía deploy hook de certbot → creado
+   `/etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh` (recarga `codigo-nginx` tras cada renovación real)
+3. Validado con `certbot renew --dry-run` → `Congratulations, all simulated renewals succeeded`
+4. `certbot.timer` activo (próxima ejecución 2026-10-07)
+
+**Nota:** dry-run NO ejecuta deploy hooks por diseño — es esperado. En renovación real el hook sí se ejecuta.
+
+**Pendiente recomendado:** monitorización de uptime (ej. UptimeRobot, gratis) para recibir aviso por email si el sitio baja.
+
+---
+
 ## Proximo paso
 
 1. Hablar con el barbero para ajustar detalles de UX y operación diaria
