@@ -4604,7 +4604,7 @@ function AdminPanel() {
     const booked = appointments.filter(a => a.status === 'booked').length
     const completed = appointments.filter(a => a.status === 'completed').length
     const revenue = appointments
-      .filter(a => a.status !== 'cancelled')
+      .filter(a => a.status === 'completed')
       .reduce((sum, a) => sum + (a.service_price || 0), 0)
     return { booked, completed, revenue, total: appointments.length }
   }, [appointments])
@@ -4827,7 +4827,7 @@ function AdminPanel() {
             ),
             h('div', { className: 'flex items-center gap-1.5' },
               h('span', { className: 'text-[9px] font-medium text-stone-400 uppercase tracking-wider' }, t('admin.revenue')),
-              h('span', { className: 'text-sm font-bold text-stone-800' }, stats.revenue + '\u20AC')
+              h('span', { className: 'text-sm font-bold text-stone-800' }, maskRevenue(stats.revenue + '€'))
             ),
             h('div', { className: 'flex items-center gap-1.5' },
               h('span', { className: 'text-[9px] font-medium text-stone-400 uppercase tracking-wider' }, t('admin.new_month')),
