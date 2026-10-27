@@ -1,4 +1,4 @@
-from datetime import datetime, date as date_type
+from datetime import datetime, timezone, date as date_type
 from typing import Optional, List
 from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship, Column, DateTime, text
@@ -27,8 +27,8 @@ class Client(SQLModel, table=True):
     email: Optional[str] = None
     notes: Optional[str] = Field(default=None, nullable=True)
     is_demo: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     appointments: List["Appointment"] = Relationship(back_populates="client")
 
@@ -57,7 +57,7 @@ class Appointment(SQLModel, table=True):
     review_requested: bool = Field(default=False)
     recall_sent: bool = Field(default=False)
     
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     service: Optional[Service] = Relationship(back_populates="appointments")
     client: Optional[Client] = Relationship(back_populates="appointments")
@@ -71,7 +71,7 @@ class Holiday(SQLModel, table=True):
     name_es: str = Field(max_length=200, nullable=False)
     name_en: Optional[str] = Field(max_length=200, default=None)
     year: int = Field(nullable=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class SeasonalSchedule(SQLModel, table=True):
@@ -86,7 +86,7 @@ class SeasonalSchedule(SQLModel, table=True):
     season_end: date_type = Field(nullable=False)
     business_hours: str = Field(nullable=False)  # JSON string
     active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TimeBlock(SQLModel, table=True):
@@ -98,7 +98,7 @@ class TimeBlock(SQLModel, table=True):
     end_time: Optional[str] = Field(default=None, max_length=5)    # "14:00", null si full_day
     reason: Optional[str] = Field(default=None, max_length=300)
     block_type: str = Field(default="time_range")  # 'full_day' | 'time_range'
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PushSubscription(SQLModel, table=True):
@@ -110,8 +110,8 @@ class PushSubscription(SQLModel, table=True):
     auth: str = Field(nullable=False)
     user_agent: Optional[str] = Field(default=None, max_length=500)
     # Preparado para multi-admin futuro: admin_id: Optional[int] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_used: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_used: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     # Trazabilidad: estado y errores
     status: str = Field(default="active")  # 'active' | 'invalid' | 'expired'
     last_error: Optional[str] = Field(default=None, max_length=500)
