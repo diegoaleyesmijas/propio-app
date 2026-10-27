@@ -485,7 +485,8 @@ def admin_create_booking(
     db: Session = Depends(get_session),
     accept_lang: str | None = Header(None, alias="Accept-Language"),
 ):
-    """Create a booking from the admin panel. Same validation as public /book."""
+    """Create a booking from the admin panel. Same validation as public /book,
+    except grid alignment: the admin may book at any minute."""
     lang = parse_lang(accept_lang)
     result = create_appointment(
         db=db,
@@ -496,6 +497,7 @@ def admin_create_booking(
         start_time=payload.start_time,
         is_first_time=payload.is_first_time,
         is_demo=payload.is_demo,
+        check_alignment=False,
     )
     background_tasks.add_task(
         background_send_confirmation,
@@ -1363,7 +1365,11 @@ def unregister_push_subscription(
 def admin_list_services(db: Session = Depends(get_session)):
     """List all services (including inactive)."""
     rows = db.execute(
-        text("SELECT id, name, price, duration_minutes, hex_color, description, active FROM services ORDER BY id")
+        text("""
+            SELECT id, name, price, duration_minutes, slot_interval_minutes,
+                   hex_color, description, active
+            FROM services ORDER BY id
+        """)
     ).fetchall()
     return [
         {
@@ -1371,9 +1377,10 @@ def admin_list_services(db: Session = Depends(get_session)):
             "name": r[1],
             "price": float(r[2]),
             "duration_minutes": r[3],
-            "hex_color": r[4],
-            "description": r[5],
-            "active": r[6],
+            "slot_interval_minutes": r[4],
+            "hex_color": r[5],
+            "description": r[6],
+            "active": r[7],
         }
         for r in rows
     ]
@@ -1390,14 +1397,16 @@ def admin_create_service(payload: ServiceCreate, db: Session = Depends(get_sessi
 
     result = db.execute(
         text("""
-            INSERT INTO services (name, price, duration_minutes, hex_color, description, active)
-            VALUES (:name, :price, :duration, :color, :desc, :active)
+            INSERT INTO services (name, price, duration_minutes, slot_interval_minutes,
+                                  hex_color, description, active)
+            VALUES (:name, :price, :duration, :slot_interval, :color, :desc, :active)
             RETURNING id
         """),
         {
             "name": payload.name,
             "price": payload.price,
             "duration": payload.duration_minutes,
+            "slot_interval": payload.slot_interval_minutes,
             "color": payload.hex_color,
             "desc": payload.description,
             "active": payload.active if payload.active is not None else True,
@@ -1429,6 +1438,11 @@ def admin_update_service(service_id: int, payload: ServiceUpdate, db: Session = 
     if payload.duration_minutes is not None:
         updates.append("duration_minutes = :duration")
         params["duration"] = payload.duration_minutes
+    # Persisted when present in the payload: explicit null resets to the
+    # global fallback (SLOT_INTERVAL_MINUTES), so it must not be skipped.
+    if 'slot_interval_minutes' in payload.model_fields_set:
+        updates.append("slot_interval_minutes = :slot_interval")
+        params["slot_interval"] = payload.slot_interval_minutes
     if payload.hex_color is not None:
         if not re.match(r'^#[0-9A-Fa-f]{6}$', payload.hex_color):
             raise HTTPException(status_code=400, detail="hex_color must be in format #RRGGBB")

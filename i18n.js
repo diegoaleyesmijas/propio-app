@@ -284,6 +284,9 @@ const dict = {
     'settings.service_name': 'Nombre',
     'settings.service_price': 'Precio',
     'settings.service_duration': 'Duración (min)',
+    'settings.service_slot_interval': 'Intervalo de reservas (min)',
+    'settings.service_slot_interval_auto': 'Automático',
+    'settings.service_slot_interval_help': 'Vacío = intervalo por defecto (5 min)',
     'settings.service_color': 'Color',
     'settings.service_description': 'Descripción',
     'settings.service_description_ph': 'Describe el servicio…',
@@ -339,6 +342,7 @@ const dict = {
     'template.duration_price': '{0} min · {1}€',
     'template.summary': '{0} · {1} {2}',
     'template.service_phone': '{0} · {1}',
+    'template.slot_range': '{0} – {1}',
 
     // Agenda views
     'agenda.day': 'Día',
@@ -706,6 +710,9 @@ const dict = {
     'settings.service_name': 'Name',
     'settings.service_price': 'Price',
     'settings.service_duration': 'Duration (min)',
+    'settings.service_slot_interval': 'Booking interval (min)',
+    'settings.service_slot_interval_auto': 'Automatic',
+    'settings.service_slot_interval_help': 'Empty = default interval (5 min)',
     'settings.service_color': 'Color',
     'settings.service_description': 'Description',
     'settings.service_description_ph': 'Describe the service…',
@@ -725,6 +732,9 @@ const dict = {
     'admin.delete_warning': 'Past appointments will be kept.',
     'admin.delete_warning_action': 'This action cannot be undone. All client data will be permanently deleted.',
     'admin.delete_success': 'Client deleted',
+
+    // Templates (shared patterns — same in both languages for MVP)
+    'template.slot_range': '{0} – {1}',
 
     // Agenda views
     'agenda.day': 'Day',

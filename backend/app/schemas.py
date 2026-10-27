@@ -4,19 +4,33 @@ from datetime import date, datetime
 import re
 
 
+def _check_slot_interval_range(v):
+    """slot_interval_minutes: None = global fallback; otherwise 1..60."""
+    if v is not None and not (1 <= v <= 60):
+        raise ValueError('slot_interval_minutes must be between 1 and 60')
+    return v
+
+
 class ServiceOut(BaseModel):
     id: int
     name: str
     price: float
     duration_minutes: int
+    slot_interval_minutes: Optional[int] = None
     hex_color: Optional[str] = None
     description: Optional[str] = None
+
+    @field_validator('slot_interval_minutes')
+    @classmethod
+    def validate_slot_interval(cls, v):
+        return _check_slot_interval_range(v)
 
 
 class ServiceCreate(BaseModel):
     name: str
     price: float
     duration_minutes: int
+    slot_interval_minutes: Optional[int] = None
     hex_color: Optional[str] = None
     description: Optional[str] = None
     active: Optional[bool] = True
@@ -29,11 +43,17 @@ class ServiceCreate(BaseModel):
                 raise ValueError('hex_color must be in format #RRGGBB')
         return v
 
+    @field_validator('slot_interval_minutes')
+    @classmethod
+    def validate_slot_interval(cls, v):
+        return _check_slot_interval_range(v)
+
 
 class ServiceUpdate(BaseModel):
     name: Optional[str] = None
     price: Optional[float] = None
     duration_minutes: Optional[int] = None
+    slot_interval_minutes: Optional[int] = None
     hex_color: Optional[str] = None
     description: Optional[str] = None
     active: Optional[bool] = None
@@ -45,6 +65,11 @@ class ServiceUpdate(BaseModel):
             if not re.match(r'^#[0-9A-Fa-f]{6}$', v):
                 raise ValueError('hex_color must be in format #RRGGBB')
         return v
+
+    @field_validator('slot_interval_minutes')
+    @classmethod
+    def validate_slot_interval(cls, v):
+        return _check_slot_interval_range(v)
 
 
 class SlotsQuery(BaseModel):

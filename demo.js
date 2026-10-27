@@ -57,6 +57,19 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' })
 }
 
+// Fin del hueco: inicio + duration_minutes del servicio (estilo Booksy, ej. 13:45 → 14:05)
+function slotEndISO(startIso, durationMinutes) {
+  const mins = Number(durationMinutes)
+  const d = new Date(startIso)
+  d.setTime(d.getTime() + (Number.isFinite(mins) && mins > 0 ? mins : 0) * 60000)
+  return d.toISOString()
+}
+
+// Rango completo del hueco, ej. "13:45 – 14:05"
+function fmtSlotRange(startIso, durationMinutes) {
+  return t('template.slot_range', fmtTime(startIso), fmtTime(slotEndISO(startIso, durationMinutes)))
+}
+
 // ── Category grouping (Booksy-style accordion) ──
 const CATEGORY_LABEL = {
   '#8B5CF6': 'Pack Código de Caballeros',
@@ -244,10 +257,10 @@ function DaySelector({ value, onChange, days = 14 }) {
   )
 }
 
-function TimeGrid({ slots, loading, value, onChange, onNextAvailable }) {
+function TimeGrid({ slots, loading, value, onChange, onNextAvailable, durationMinutes }) {
   if (loading) {
     return React.createElement('div', { className: 'grid grid-cols-3 gap-2 mt-4' },
-      Array.from({length:9}).map((_,i) => React.createElement('div', { key:i, className: 'h-12 rounded-2xl bg-stone-100 animate-pulse' }))
+      Array.from({length:9}).map((_,i) => React.createElement('div', { key:i, className: 'h-16 rounded-2xl bg-stone-100 animate-pulse' }))
     )
   }
   if (!slots.length) {
@@ -262,10 +275,20 @@ function TimeGrid({ slots, loading, value, onChange, onNextAvailable }) {
     slots.map(s => {
       const label = fmtTime(s)
       const active = value === s
+      const mins = Number(durationMinutes)
+      const hasEnd = Number.isFinite(mins) && mins > 0
+      const endLabel = hasEnd ? fmtTime(slotEndISO(s, mins)) : null
       return React.createElement('button', {
         key: s, onClick: () => onChange(s),
-        className: active ? 'pill-active' : 'pill-outline'
-      }, label)
+        className: active ? 'pill-active' : 'pill-outline',
+        'aria-label': hasEnd ? t('template.slot_range', label, endLabel) : label,
+        'aria-pressed': active
+      },
+        React.createElement('span', { className: 'block font-bold leading-tight' }, label),
+        endLabel && React.createElement('span', {
+          className: 'block text-[10px] font-medium opacity-75 leading-tight mt-0.5'
+        }, '\u2192 ' + endLabel)
+      )
     })
   )
 }
@@ -631,17 +654,19 @@ function App() {
         React.createElement('div', { className: 'card mb-4 bg-dark-500 text-white' },
           React.createElement('p', { className: 'text-xs uppercase tracking-wider text-stone-400' }, t('booking.service_selected')),
           React.createElement('p', { className: 'font-bold text-lg mt-0.5' }, selectedService.name),
-          React.createElement('p', { className: 'text-sm text-stone-300' }, t('template.duration_price', selectedService.duration_minutes, selectedService.price))),
+          React.createElement('p', { className: 'text-sm text-stone-300' }, t('template.duration_price', selectedService.duration_minutes, selectedService.price)),
+          selectedSlot && React.createElement('p', { className: 'text-sm font-bold text-white mt-1.5' },
+            fmtSlotRange(selectedSlot, selectedService.duration_minutes))),
         React.createElement('h3', { className: 'font-bold text-sm text-stone-500 uppercase tracking-wider mb-2' }, t('booking.day')),
         React.createElement(DaySelector, { value: date, onChange: setDate }),
         React.createElement('h3', { className: 'font-bold text-sm text-stone-500 uppercase tracking-wider mt-5 mb-1' }, t('booking.available_time')),
-        React.createElement(TimeGrid, { slots, loading: loadingSlots, value: selectedSlot, onChange: setSelectedSlot, onNextAvailable: goNextAvailable })
+        React.createElement(TimeGrid, { slots, loading: loadingSlots, value: selectedSlot, onChange: setSelectedSlot, onNextAvailable: goNextAvailable, durationMinutes: selectedService.duration_minutes })
       ),
 
       step === 'form' && selectedService && selectedSlot && React.createElement('section', null,
         React.createElement(BookingForm, {
           initial: formData,
-          summary: t('template.summary', selectedService.name, fmtDate(selectedSlot), fmtTime(selectedSlot)),
+          summary: t('template.summary', selectedService.name, fmtDate(selectedSlot), fmtSlotRange(selectedSlot, selectedService.duration_minutes)),
           loading: loadingBook, error, onSubmit: handleSubmit
         })
       ),

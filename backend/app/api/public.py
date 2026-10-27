@@ -65,6 +65,7 @@ def create_booking(
         customer_email=payload.customer_email,
         start_time=payload.start_time,
         is_first_time=payload.is_first_time,
+        check_alignment=True,
     )
     background_tasks.add_task(
         background_send_confirmation,

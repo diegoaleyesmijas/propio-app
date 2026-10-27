@@ -435,6 +435,19 @@ function fmtDateShort(iso) {
   return d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Madrid' })
 }
 
+// Fin del hueco: inicio + duration_minutes del servicio (estilo Booksy, ej. 13:45 → 14:05)
+function slotEndISO(startIso, durationMinutes) {
+  const mins = Number(durationMinutes)
+  const d = new Date(startIso)
+  d.setTime(d.getTime() + (Number.isFinite(mins) && mins > 0 ? mins : 0) * 60000)
+  return d.toISOString()
+}
+
+// Rango completo del hueco, ej. "13:45 – 14:05"
+function fmtSlotRange(startIso, durationMinutes) {
+  return t('template.slot_range', fmtTime(startIso), fmtTime(slotEndISO(startIso, durationMinutes)))
+}
+
 function fmtRelative(iso) {
   if (!iso) return ''
   const d = new Date(iso)
@@ -1683,18 +1696,28 @@ function CreateBookingModal({ services, onClose, onSuccess }) {
         ),
         loadingSlots
           ? h('div', { className: 'grid grid-cols-3 gap-2 mt-4' },
-              Array.from({ length: 9 }).map((_, i) => h('div', { key: i, className: 'h-12 rounded-2xl bg-stone-100 animate-pulse' }))
+              Array.from({ length: 9 }).map((_, i) => h('div', { key: i, className: 'h-16 rounded-2xl bg-stone-100 animate-pulse' }))
             )
           : slots.length === 0
             ? h('p', { className: 'text-center text-stone-500 py-6 text-sm' }, t('modal.no_slots'))
             : h('div', { className: 'grid grid-cols-3 gap-2 mt-4' },
-                slots.map(s => h('button', {
-                  key: s, onClick: () => setSelSlot(s),
-                  className: 'py-3 rounded-2xl text-sm font-bold transition active:scale-[0.98] cursor-pointer ' +
-                    (selSlot === s
-                      ? 'bg-propio-500 hover:bg-propio-600 text-white shadow-md'
-                      : 'bg-white border border-stone-200 text-stone-700 hover:border-propio-300')
-                }, fmtTime(s)))
+                slots.map(s => {
+                  const mins = Number(selService?.duration_minutes)
+                  const hasEnd = Number.isFinite(mins) && mins > 0
+                  const endLabel = hasEnd ? fmtTime(slotEndISO(s, mins)) : null
+                  return h('button', {
+                    key: s, onClick: () => setSelSlot(s),
+                    'aria-label': hasEnd ? t('template.slot_range', fmtTime(s), endLabel) : fmtTime(s),
+                    'aria-pressed': selSlot === s,
+                    className: 'py-2.5 rounded-2xl text-sm transition active:scale-[0.98] cursor-pointer ' +
+                      (selSlot === s
+                        ? 'bg-propio-500 hover:bg-propio-600 text-white shadow-md'
+                        : 'bg-white border border-stone-200 text-stone-700 hover:border-propio-300')
+                  },
+                    h('span', { className: 'block font-bold leading-tight' }, fmtTime(s)),
+                    endLabel && h('span', { className: 'block text-[10px] font-medium opacity-75 leading-tight mt-0.5' }, '\u2192 ' + endLabel)
+                  )
+                })
               ),
         selSlot && h('button', {
           onClick: () => setStep('form'),
@@ -1706,7 +1729,7 @@ function CreateBookingModal({ services, onClose, onSuccess }) {
       step === 'form' && h('div', null,
         h('h3', { className: 'font-bold text-base text-stone-800 mb-1' }, t('modal.step3')),
         h('p', { className: 'text-sm text-stone-500 mb-4' },
-          t('template.summary', selService?.name || '', fmtDate(selSlot), fmtTime(selSlot))
+          t('template.summary', selService?.name || '', fmtDate(selSlot), fmtSlotRange(selSlot, selService?.duration_minutes))
         ),
         h('div', { className: 'space-y-3' },
           h('div', null,
@@ -3867,12 +3890,13 @@ function ServicesView({ token, onToast }) {
   const [formName, setFormName] = useState('')
   const [formPrice, setFormPrice] = useState('')
   const [formDuration, setFormDuration] = useState('')
+  const [formSlotInterval, setFormSlotInterval] = useState('')
   const [formColor, setFormColor] = useState('#3B82F6')
   const [formDescription, setFormDescription] = useState('')
   const [formActive, setFormActive] = useState(true)
 
   const resetForm = () => {
-    setFormName(''); setFormPrice(''); setFormDuration('')
+    setFormName(''); setFormPrice(''); setFormDuration(''); setFormSlotInterval('')
     setFormColor('#3B82F6'); setFormDescription(''); setFormActive(true)
     setEditService(null); setFeedback(null)
   }
@@ -3894,6 +3918,7 @@ function ServicesView({ token, onToast }) {
     setFormName(service.name)
     setFormPrice(String(service.price))
     setFormDuration(String(service.duration_minutes))
+    setFormSlotInterval(service.slot_interval_minutes != null ? String(service.slot_interval_minutes) : '')
     setFormColor(service.hex_color || '#3B82F6')
     setFormDescription(service.description || '')
     setFormActive(service.active)
@@ -3909,6 +3934,7 @@ function ServicesView({ token, onToast }) {
         name: formName.trim(),
         price: parseFloat(formPrice),
         duration_minutes: parseInt(formDuration),
+        slot_interval_minutes: formSlotInterval === '' ? null : parseInt(formSlotInterval, 10),
         hex_color: formColor,
         description: formDescription.trim() || null,
         active: formActive,
@@ -4028,6 +4054,22 @@ function ServicesView({ token, onToast }) {
               className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
             })
           )
+        ),
+
+        // Slot interval (opcional — vacío/NULL = automático según duración)
+        h('div', { className: 'mb-3' },
+          h('label', { className: 'text-xs font-semibold text-stone-500 ml-1' }, t('settings.service_slot_interval')),
+          h('select', {
+            value: formSlotInterval,
+            onChange: e => setFormSlotInterval(e.target.value),
+            className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1 cursor-pointer'
+          },
+            h('option', { value: '' }, t('settings.service_slot_interval_auto')),
+            [5, 10, 15, 30].map(v => h('option', { key: v, value: String(v) }, String(v))),
+            formSlotInterval !== '' && ![5, 10, 15, 30].includes(parseInt(formSlotInterval, 10)) &&
+              h('option', { key: 'custom', value: formSlotInterval }, formSlotInterval)
+          ),
+          h('p', { className: 'text-[10px] text-stone-400 mt-1 ml-1' }, t('settings.service_slot_interval_help'))
         ),
 
         // Color

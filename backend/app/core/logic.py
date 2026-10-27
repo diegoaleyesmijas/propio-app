@@ -155,6 +155,7 @@ def create_appointment(
     start_time: datetime,
     is_first_time: Optional[bool] = None,
     is_demo: Optional[bool] = None,
+    check_alignment: bool = True,
 ) -> dict:
     """
     Core booking logic shared by /book and /admin/appointments.
@@ -162,6 +163,10 @@ def create_appointment(
     - Inserts via raw SQL with tstzrange (EXCLUDE constraint guards overlaps)
     - Returns dict with id, token_uuid, service_name, start_time, end_time
     Raises HTTPException 404/400/409 on failure.
+
+    check_alignment: when True (public /book), the start time must be aligned
+    to the service booking grid (slot_interval_minutes or the global fallback).
+    The admin panel passes False so staff can book at any minute.
     """
     # 1. Validate service
     service = db.get(Service, service_id)
@@ -173,6 +178,19 @@ def create_appointment(
     if start.tzinfo is None:
         start = start.replace(tzinfo=timezone.utc)
     end = start + timedelta(minutes=service.duration_minutes)
+
+    # 2b. Grid alignment (public bookings only)
+    if check_alignment:
+        step_min = service.slot_interval_minutes or settings.SLOT_INTERVAL_MINUTES
+        if step_min <= 0:
+            step_min = settings.SLOT_INTERVAL_MINUTES
+        local_start = start.astimezone(TZ)
+        minutes_of_day = local_start.hour * 60 + local_start.minute
+        if minutes_of_day % step_min != 0 or local_start.second or local_start.microsecond:
+            raise HTTPException(
+                status_code=400,
+                detail="The start time is not aligned to the booking interval"
+            )
 
     # 3. Validate business hours (checks holidays + seasons)
     _validate_business_hours(start, timedelta(minutes=service.duration_minutes), db)
@@ -282,15 +300,22 @@ def get_available_slots(db: Session, service_id: int, target_date: date_type) ->
     for a given service on a given date.
     Now respects: holidays, seasonal schedules, and manual time blocks.
     """
-    # 1. Get service duration
+    # 1. Get service duration + per-service booking grid step
     result = db.execute(
-        text("SELECT duration_minutes FROM services WHERE id = :sid AND active = TRUE"),
+        text("""
+            SELECT duration_minutes, slot_interval_minutes
+            FROM services WHERE id = :sid AND active = TRUE
+        """),
         {"sid": service_id}
     ).first()
     if not result:
         return []
     duration_min = result[0]
     duration = timedelta(minutes=duration_min)
+    # NULL slot_interval_minutes -> global fallback
+    step_min = result[1] or settings.SLOT_INTERVAL_MINUTES
+    if step_min <= 0:
+        step_min = settings.SLOT_INTERVAL_MINUTES
 
     # 2. Get business hours (checks holidays + seasons)
     hours = get_business_hours_for_date(db, target_date)
@@ -305,7 +330,7 @@ def get_available_slots(db: Session, service_id: int, target_date: date_type) ->
     if has_full_day_block:
         return []
 
-    step = timedelta(minutes=settings.SLOT_INTERVAL_MINUTES)
+    step = timedelta(minutes=step_min)
     now_utc = datetime.now(timezone.utc)
     slots: List[str] = []
 
@@ -329,15 +354,17 @@ def get_available_slots(db: Session, service_id: int, target_date: date_type) ->
         ).fetchall()
         busy = [(r[0], r[1]) for r in rows]
 
-        # 6. Walk the block in LOCAL time, compare in UTC
-        # Align open time UP to next SLOT_INTERVAL boundary (e.g. 10:15 → 10:30, not 10:00)
-        cursor_local = open_local
-        if cursor_local.minute % settings.SLOT_INTERVAL_MINUTES != 0:
-            # Round UP to next interval boundary
-            cursor_local = cursor_local.replace(
-                minute=((cursor_local.minute // settings.SLOT_INTERVAL_MINUTES) + 1) * settings.SLOT_INTERVAL_MINUTES,
-                second=0, microsecond=0
-            )
+        # 6. Walk the block in LOCAL time, compare in UTC.
+        # Align the cursor UP to the first minute-of-day (local) that is a
+        # multiple of the step, so any step works (5, 15, 20, 7...). E.g. with
+        # step=5 and open 10:00: 10:00, 10:05, ... 13:45, 13:50...
+        cursor_local = open_local.replace(second=0, microsecond=0)
+        minutes_of_day = cursor_local.hour * 60 + cursor_local.minute
+        remainder = minutes_of_day % step_min
+        if remainder != 0 or open_local.second or open_local.microsecond:
+            # Round UP to the next step boundary from midnight
+            advance = (step_min - remainder) % step_min or step_min
+            cursor_local = cursor_local + timedelta(minutes=advance)
         while cursor_local + duration <= close_local:
             start_utc = cursor_local.astimezone(timezone.utc)
             end_utc = start_utc + duration

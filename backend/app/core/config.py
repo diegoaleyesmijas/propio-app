@@ -22,7 +22,11 @@ class Settings(BaseSettings):
         5: [(time(10, 0), time(15, 30))],
         6: [],
     }
-    SLOT_INTERVAL_MINUTES: int = 30
+    # Fallback booking-grid step in minutes. Used when a service has
+    # slot_interval_minutes IS NULL. Was 30 (only :00/:30 starts); now 5 so
+    # short services can start at any 5-minute boundary (e.g. 13:45) Booksy-style.
+    # Services may override it per-service via services.slot_interval_minutes.
+    SLOT_INTERVAL_MINUTES: int = 5
     
     # Cancellation rule (hours before appointment)
     CANCELLATION_WINDOW_HOURS: int = 24

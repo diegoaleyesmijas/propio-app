@@ -11,6 +11,8 @@ class Service(SQLModel, table=True):
     name: str
     price: float
     duration_minutes: int
+    # Per-service booking grid step. NULL = use settings.SLOT_INTERVAL_MINUTES.
+    slot_interval_minutes: Optional[int] = Field(default=None)
     active: bool = Field(default=True)
     hex_color: Optional[str] = Field(default=None, max_length=7)
     description: Optional[str] = Field(default=None)
