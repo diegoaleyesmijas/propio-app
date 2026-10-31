@@ -362,7 +362,6 @@ def reschedule_appointment(
                     customer_name = :customer_name,
                     customer_phone = :customer_phone,
                     customer_email = :customer_email,
-                    price_snapshot = :price_snapshot,
                     notification_status = 'pending'
                 WHERE id = :id
             """),
@@ -373,7 +372,6 @@ def reschedule_appointment(
                 "customer_name": final_name,
                 "customer_phone": final_phone,
                 "customer_email": final_email,
-                "price_snapshot": float(service.price),
                 "id": appt_id
             }
         )
