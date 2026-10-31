@@ -727,12 +727,13 @@ function urlBase64ToUint8Array(base64String) {
   return new Uint8Array([...rawData].map(char => char.charCodeAt(0)))
 }
 
-const AppointmentCard = React.memo(function AppointmentCard({ appt, onComplete, onCancel, busy, compact }) {
+const AppointmentCard = React.memo(function AppointmentCard({ appt, onComplete, onCancel, onAppointmentClick, busy, compact }) {
   const isPast = appt.status === 'completed' || appt.status === 'cancelled'
 
   if (compact) {
     return h('div', {
-      className: 'bg-white rounded-xl p-2 border border-stone-200 text-xs space-y-1'
+      onClick: () => onAppointmentClick && onAppointmentClick(appt),
+      className: 'bg-white rounded-xl p-2 border border-stone-200 text-xs space-y-1 cursor-pointer hover:shadow-sm transition'
     },
       h('div', { className: 'flex items-center justify-between gap-1' },
         h('span', { className: 'font-bold text-stone-800' }, fmtTime(appt.start_time)),
@@ -756,7 +757,8 @@ const AppointmentCard = React.memo(function AppointmentCard({ appt, onComplete, 
   }
 
   return h('div', {
-    className: 'rounded-2xl border border-stone-200 shadow-sm overflow-hidden',
+    onClick: () => onAppointmentClick && onAppointmentClick(appt),
+    className: 'rounded-2xl border border-stone-200 shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition',
     style: serviceAccent(appt.service_color),
   },
     h('div', { className: 'flex items-stretch' },
@@ -1469,7 +1471,7 @@ function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId
 
 // ── MonthView ─────────────────────────────────────────────────────────
 
-function MonthView({ monthlyData, monthStr, onSelectDay, selectedDay, selectedAppts, onComplete, onCancel, busyId, loading, onToast }) {
+function MonthView({ monthlyData, monthStr, onSelectDay, selectedDay, selectedAppts, onComplete, onCancel, onAppointmentClick, busyId, loading, onToast }) {
   if (loading) return h(LoadingSkeleton)
   if (!monthlyData) return h(EmptyState, { title: t('admin.agenda_empty'), sub: t('admin.agenda_empty_sub') })
 
@@ -1606,6 +1608,8 @@ function MonthView({ monthlyData, monthStr, onSelectDay, selectedDay, selectedAp
                 key: a.id,
                 appt: a,
                 onComplete,
+                onCancel,
+                onAppointmentClick,
                 busy: busyId === a.id
               }))
             )
@@ -4938,6 +4942,7 @@ function AdminPanel() {
           selectedAppts: monthSelectedAppts,
           onComplete: handleComplete,
           onCancel: handleCancel,
+          onAppointmentClick: setDetailModalAppt,
           busyId,
           loading,
           onToast: setToast
