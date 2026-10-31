@@ -530,6 +530,58 @@ def admin_create_booking(
     }
 
 
+@router.patch("/admin/appointments/{appointment_id}")
+def admin_reschedule_booking(
+    appointment_id: int,
+    payload: AdminBookingCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_session),
+    accept_lang: str | None = Header(None, alias="Accept-Language"),
+):
+    """Reschedule an existing appointment to a new time. Updates the appointment
+    and sends a new confirmation email to the customer."""
+    from app.core.logic import reschedule_appointment
+    lang = parse_lang(accept_lang)
+    
+    try:
+        result = reschedule_appointment(
+            db=db,
+            appointment_id=appointment_id,
+            new_start_time=payload.start_time,
+            new_service_id=payload.service_id,
+            new_customer_name=payload.customer_name,
+            new_customer_phone=payload.customer_phone,
+            new_customer_email=payload.customer_email,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error rescheduling: {str(e)}")
+    
+    # Send new confirmation email with updated time
+    background_tasks.add_task(
+        background_send_confirmation,
+        email=result["customer_email"],
+        customer_name=result["customer_name"],
+        service_name=result["service_name"],
+        start_time=result["start_time"],
+        token_uuid=result["token_uuid"],
+        appointment_id=result["id"],
+        lang=lang,
+    )
+    
+    return {
+        "id": result["id"],
+        "token_uuid": result["token_uuid"],
+        "service_name": result["service_name"],
+        "service_color": result.get("service_color"),
+        "customer_name": result["customer_name"],
+        "start_time": result["start_time"],
+        "end_time": result["end_time"],
+        "status": result["status"],
+    }
+
+
 @router.post("/admin/reset-demo", response_model=ResetDemoResponse)
 def admin_reset_demo(
     payload: ResetDemoRequest,

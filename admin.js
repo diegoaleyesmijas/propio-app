@@ -115,6 +115,18 @@ async function adminCreateBooking(payload) {
   return data
 }
 
+async function adminRescheduleBooking(appointmentId, payload) {
+  const r = await fetch(`${API}/admin/appointments/${appointmentId}`, {
+    method: 'PATCH',
+    headers: _adminHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload)
+  })
+  if (r.status === 401) { _handleUnauthorized(); throw new Error('API Key requerida') }
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.detail || t('error.reschedule'))
+  return data
+}
+
 async function getUpcoming() {
   const r = await fetch(`${API}/admin/upcoming`, { headers: _adminHeaders() })
   if (r.status === 401) { _handleUnauthorized(); throw new Error('API Key requerida') }
@@ -788,7 +800,7 @@ const AppointmentCard = React.memo(function AppointmentCard({ appt, onComplete, 
 })
 
 // ── Appointment Detail Modal ──────────────────────────────────────────
-const DetailModal = React.memo(function DetailModal({ appt, onClose, onComplete, onCancel, busyId }) {
+const DetailModal = React.memo(function DetailModal({ appt, onClose, onComplete, onCancel, onEdit, busyId }) {
   const [clientData, setClientData] = useState(null)
   const [clientLoading, setClientLoading] = useState(false)
   const [clientError, setClientError] = useState(false)
@@ -887,15 +899,19 @@ const DetailModal = React.memo(function DetailModal({ appt, onClose, onComplete,
       // Actions
       !isPast && appt.status === 'booked' && h('div', { className: 'px-4 py-3 border-t border-stone-100 flex gap-2' },
         h('button', {
+          onClick: (e) => { e.stopPropagation(); onClose(); onEdit(appt) },
+          className: 'flex-1 py-2.5 rounded-xl bg-blue-500 text-white font-bold text-sm active:scale-[0.98] transition cursor-pointer hover:bg-blue-600'
+        }, '✎ ' + t('admin.edit')),
+        h('button', {
           onClick: (e) => { e.stopPropagation(); onComplete(appt.id); onClose() },
           disabled: busyId === appt.id,
           className: 'flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-bold text-sm active:scale-[0.98] transition disabled:opacity-50 cursor-pointer hover:bg-emerald-700'
-        }, busyId === appt.id ? '…' : '\u2713 ' + t('admin.complete')),
+        }, busyId === appt.id ? '…' : '✓ ' + t('admin.complete')),
         h('button', {
           onClick: (e) => { e.stopPropagation(); onCancel(appt.id); onClose() },
           disabled: busyId === appt.id,
           className: 'flex-1 py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm active:scale-[0.98] transition disabled:opacity-50 cursor-pointer hover:bg-red-600'
-        }, busyId === appt.id ? '…' : '\u2717 ' + t('admin.cancel'))
+        }, busyId === appt.id ? '…' : '✗ ' + t('admin.cancel'))
       ),
       // Close link
       h('div', { className: 'px-4 py-2.5 border-t border-stone-100 text-center' },
@@ -1599,16 +1615,16 @@ function MonthView({ monthlyData, monthStr, onSelectDay, selectedDay, selectedAp
 
 // ── CreateBookingModal ────────────────────────────────────────────────
 
-function CreateBookingModal({ services, onClose, onSuccess }) {
-  const [step, setStep] = useState('service')
-  const [selService, setSelService] = useState(null)
-  const [date, setDate] = useState(() => todayISO())
+function CreateBookingModal({ services, editAppt, onClose, onSuccess }) {
+  const [step, setStep] = useState(editAppt ? 'slot' : 'service')
+  const [selService, setSelService] = useState(editAppt ? services.find(s => s.name === editAppt.service_name) : null)
+  const [date, setDate] = useState(editAppt ? editAppt.start_time.split('T')[0] : todayISO())
   const [slots, setSlots] = useState([])
   const [loadingSlots, setLoadingSlots] = useState(false)
-  const [selSlot, setSelSlot] = useState(null)
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
+  const [selSlot, setSelSlot] = useState(editAppt ? editAppt.start_time : null)
+  const [name, setName] = useState(editAppt ? editAppt.customer_name : '')
+  const [phone, setPhone] = useState(editAppt ? editAppt.customer_phone : '')
+  const [email, setEmail] = useState(editAppt ? (editAppt.customer_email || '') : '')
   const [isNewClient, setIsNewClient] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
@@ -1625,14 +1641,24 @@ function CreateBookingModal({ services, onClose, onSuccess }) {
   const handleSubmit = async () => {
     setBusy(true); setError(null)
     try {
-      await adminCreateBooking({
-        service_id: selService.id,
-        customer_name: normalizeName(name),
-        customer_phone: phone,
-        customer_email: email || null,
-        start_time: selSlot,
-        is_first_time: isNewClient,
-      })
+      if (editAppt) {
+        await adminRescheduleBooking(editAppt.id, {
+          service_id: selService.id,
+          customer_name: normalizeName(name),
+          customer_phone: phone,
+          customer_email: email || null,
+          start_time: selSlot,
+        })
+      } else {
+        await adminCreateBooking({
+          service_id: selService.id,
+          customer_name: normalizeName(name),
+          customer_phone: phone,
+          customer_email: email || null,
+          start_time: selSlot,
+          is_first_time: isNewClient,
+        })
+      }
       onSuccess()
     } catch (e) { setError(e.message) }
     finally { setBusy(false) }
@@ -1658,7 +1684,7 @@ function CreateBookingModal({ services, onClose, onSuccess }) {
       }, h(SvgClose)),
 
       step === 'service' && h('div', null,
-        h('h3', { className: 'font-bold text-base text-stone-800 mb-1' }, t('modal.title')),
+        h('h3', { className: 'font-bold text-base text-stone-800 mb-1' }, editAppt ? t('modal.edit_title') : t('modal.title')),
         h('p', { className: 'text-sm text-stone-500 mb-4' }, t('modal.step1')),
         h('div', { className: 'space-y-2' },
           services.map(s => h('button', {
@@ -1786,7 +1812,7 @@ function CreateBookingModal({ services, onClose, onSuccess }) {
           h('button', {
             onClick: handleSubmit, disabled: busy || !name.trim() || !phone.trim(),
             className: 'w-full text-base py-3 rounded-2xl bg-propio-500 hover:bg-propio-600 text-white font-bold shadow-lg active:scale-[0.98] transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2'
-          }, busy ? t('modal.loading') : t('modal.submit'))
+          }, busy ? t('modal.loading') : (editAppt ? t('modal.edit_save') : t('modal.submit')))
         )
       )
     )
@@ -4263,6 +4289,7 @@ function AdminPanel() {
   const [showModal, setShowModal] = useState(false)
   const [busyId, setBusyId] = useState(null)
   const [detailModalAppt, setDetailModalAppt] = useState(null)
+  const [editAppt, setEditAppt] = useState(null)
 
   // Client import state
   const [showImportModal, setShowImportModal] = useState(false)
@@ -5384,7 +5411,8 @@ function AdminPanel() {
     // ── Create booking modal ──
     showModal && h(CreateBookingModal, {
       services,
-      onClose: () => setShowModal(false),
+      editAppt,
+      onClose: () => { setShowModal(false); setEditAppt(null) },
       onSuccess: handleCreateSuccess
     }),
 
@@ -5394,6 +5422,7 @@ function AdminPanel() {
       onClose: () => setDetailModalAppt(null),
       onComplete: handleComplete,
       onCancel: handleCancel,
+      onEdit: (appt) => { setDetailModalAppt(null); setEditAppt(appt); setShowModal(true) },
       busyId,
     })
   )

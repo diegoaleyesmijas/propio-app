@@ -294,6 +294,108 @@ def create_appointment(
     }
 
 
+def reschedule_appointment(
+    db: Session,
+    appointment_id: int,
+    new_start_time: datetime,
+    new_service_id: Optional[int] = None,
+    new_customer_name: Optional[str] = None,
+    new_customer_phone: Optional[str] = None,
+    new_customer_email: Optional[str] = None,
+) -> dict:
+    """
+    Reschedule an existing appointment to a new time.
+    Updates the appointment slot and optionally the service/customer details.
+    Returns updated appointment details.
+    """
+    # 1. Fetch the existing appointment
+    row = db.execute(
+        text("""
+            SELECT a.id, a.token_uuid, a.customer_name, a.customer_email, a.customer_phone,
+                   a.service_id, a.slot, s.name, s.duration_minutes
+            FROM appointments a
+            JOIN services s ON s.id = a.service_id
+            WHERE a.id = :id AND a.status = 'booked'
+        """),
+        {"id": appointment_id}
+    ).first()
+
+    if not row:
+        raise ValueError("Appointment not found or already completed/cancelled")
+
+    appt_id, token_uuid, old_name, old_email, old_phone, old_service_id, old_slot, service_name, old_duration = row
+
+    # 2. Determine final values (use new values if provided, otherwise keep old)
+    final_service_id = new_service_id if new_service_id is not None else old_service_id
+    final_name = new_customer_name if new_customer_name is not None else old_name
+    final_phone = new_customer_phone if new_customer_phone is not None else old_phone
+    final_email = new_customer_email if new_customer_email is not None else old_email
+
+    # 3. Validate service exists and get duration
+    service = db.get(Service, final_service_id)
+    if not service or not service.active:
+        raise ValueError("Service not found or inactive")
+
+    # 4. Normalize timezone & compute end time
+    start = new_start_time
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    end = start + timedelta(minutes=service.duration_minutes)
+
+    # 5. Validate business hours
+    _validate_business_hours(start, timedelta(minutes=service.duration_minutes), db)
+
+    # 6. Check manual time blocks
+    local_start = start.astimezone(TZ)
+    target_date = local_start.date()
+    blocks = get_time_blocks_for_date(db, target_date)
+    if is_slot_blocked(start, end, blocks):
+        raise ValueError("This time slot is blocked. Please choose another one.")
+
+    # 7. Update appointment
+    try:
+        db.execute(
+            text("""
+                UPDATE appointments
+                SET slot = tstzrange(:start_iso, :end_iso, '[)'),
+                    service_id = :service_id,
+                    customer_name = :customer_name,
+                    customer_phone = :customer_phone,
+                    customer_email = :customer_email,
+                    price_snapshot = :price_snapshot,
+                    notification_status = 'pending'
+                WHERE id = :id
+            """),
+            {
+                "start_iso": start.isoformat(),
+                "end_iso": end.isoformat(),
+                "service_id": final_service_id,
+                "customer_name": final_name,
+                "customer_phone": final_phone,
+                "customer_email": final_email,
+                "price_snapshot": float(service.price),
+                "id": appt_id
+            }
+        )
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise ValueError("This time slot is no longer available. Please choose another one.")
+
+    return {
+        "id": appt_id,
+        "token_uuid": str(token_uuid),
+        "service_name": service.name,
+        "service_color": getattr(service, 'hex_color', None) or "#78716C",
+        "customer_name": final_name,
+        "customer_email": final_email,
+        "customer_phone": final_phone,
+        "start_time": start,
+        "end_time": end,
+        "status": "booked",
+    }
+
+
 def get_available_slots(db: Session, service_id: int, target_date: date_type) -> List[str]:
     """
     Returns a list of ISO-formatted start times (strings) that are available

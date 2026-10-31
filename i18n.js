@@ -82,6 +82,7 @@ const dict = {
     'admin.login_help': '¿Problemas para acceder? Contacta con soporte',
     'admin.complete': 'Completar',
     'admin.cancel': 'Cancelar',
+    'admin.edit': 'Editar',
     'admin.cancel_confirm': '¿Anular esta reserva? La cita se cancelará permanentemente.',
     'admin.refresh': 'Refrescar',
 
@@ -304,6 +305,8 @@ const dict = {
 
     // Modal (admin)
     'modal.title': 'Nueva reserva',
+    'modal.edit_title': 'Editar cita',
+    'modal.edit_save': 'Guardar cambios',
     'modal.step1': 'Paso 1: selecciona el servicio',
     'modal.step2': 'Paso 2: elige día y hora',
     'modal.step3': 'Datos del cliente',
@@ -406,6 +409,7 @@ const dict = {
     'error.services': 'No se pudieron cargar los servicios',
     'error.slots': 'No se pudieron cargar los horarios',
     'error.create': 'Error al crear la reserva',
+    'error.reschedule': 'Error al editar la cita',
     'error.not_found': 'Reserva no encontrada',
     'error.cancel': 'No se pudo cancelar',
     'error.agenda': 'No se pudo cargar la agenda',
@@ -487,6 +491,7 @@ const dict = {
     'admin.login_help': 'Having trouble? Contact support',
     'admin.complete': 'Complete',
     'admin.cancel': 'Cancel',
+    'admin.edit': 'Edit',
     'admin.cancel_confirm': 'Cancel this appointment? The booking will be permanently cancelled.',
     'admin.refresh': 'Refresh',
 
@@ -611,6 +616,8 @@ const dict = {
     'status.cancelled': 'Cancelled',
 
     'modal.title': 'New booking',
+    'modal.edit_title': 'Edit appointment',
+    'modal.edit_save': 'Save changes',
     'modal.step1': 'Step 1: select a service',
     'modal.step2': 'Step 2: choose day and time',
     'modal.step3': 'Customer details',
@@ -797,6 +804,7 @@ const dict = {
     'error.services': 'Could not load services',
     'error.slots': 'Could not load available times',
     'error.create': 'Error creating the booking',
+    'error.reschedule': 'Error editing the appointment',
     'error.not_found': 'Booking not found',
     'error.cancel': 'Could not cancel',
     'error.agenda': 'Could not load agenda',
