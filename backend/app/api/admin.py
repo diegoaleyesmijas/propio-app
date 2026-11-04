@@ -1219,6 +1219,15 @@ class TimeBlockCreate(BaseModel):
     reason: Optional[str] = None
 
 
+class TimeBlockRangeCreate(BaseModel):
+    start_date: str  # YYYY-MM-DD
+    end_date: str    # YYYY-MM-DD
+    block_type: str = "full_day"  # 'full_day' | 'time_range'
+    start_time: Optional[str] = None  # "HH:MM" (only for time_range)
+    end_time: Optional[str] = None    # "HH:MM" (only for time_range)
+    reason: Optional[str] = None
+
+
 @router.get("/admin/blocks")
 def admin_list_blocks(date: Optional[str] = None, db: Session = Depends(get_session)):
     """List time blocks, optionally filtered by date."""
@@ -1301,6 +1310,73 @@ def admin_create_block(payload: TimeBlockCreate, db: Session = Depends(get_sessi
     )
     db.commit()
     return {"ok": True, "block_date": payload.block_date}
+
+
+@router.post("/admin/blocks/range")
+def admin_create_block_range(payload: TimeBlockRangeCreate, db: Session = Depends(get_session)):
+    """Create time blocks for a range of dates (e.g., vacation period)."""
+    from datetime import date as _date, timedelta
+    try:
+        start_d = _date.fromisoformat(payload.start_date)
+        end_d = _date.fromisoformat(payload.end_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+    if start_d > end_d:
+        raise HTTPException(status_code=400, detail="start_date must be before or equal to end_date")
+
+    if payload.block_type not in ("full_day", "time_range"):
+        raise HTTPException(status_code=400, detail="block_type must be 'full_day' or 'time_range'")
+
+    if payload.block_type == "time_range":
+        if not payload.start_time or not payload.end_time:
+            raise HTTPException(status_code=400, detail="start_time and end_time required for time_range")
+        # Validate time format + order
+        try:
+            h_s, m_s = payload.start_time.split(":")
+            h_e, m_e = payload.end_time.split(":")
+            if not (0 <= int(h_s) <= 23 and 0 <= int(m_s) <= 59 and 0 <= int(h_e) <= 23 and 0 <= int(m_e) <= 59):
+                raise ValueError
+            if payload.start_time >= payload.end_time:
+                raise HTTPException(status_code=400, detail="end_time must be after start_time")
+        except HTTPException:
+            raise
+        except (ValueError, AttributeError):
+            raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
+
+    # Limit range to 365 days to prevent abuse
+    max_days = 365
+    if (end_d - start_d).days > max_days:
+        raise HTTPException(status_code=400, detail=f"Maximum range is {max_days} days")
+
+    # Create a TimeBlock for each day in the range
+    created_count = 0
+    current_date = start_d
+    while current_date <= end_d:
+        db.execute(
+            text("""
+                INSERT INTO time_blocks (block_date, block_type, start_time, end_time, reason)
+                VALUES (:d, :bt, :st, :et, :r)
+                ON CONFLICT DO NOTHING
+            """),
+            {
+                "d": current_date,
+                "bt": payload.block_type,
+                "st": payload.start_time,
+                "et": payload.end_time,
+                "r": payload.reason,
+            }
+        )
+        created_count += 1
+        current_date += timedelta(days=1)
+
+    db.commit()
+    return {
+        "ok": True,
+        "start_date": payload.start_date,
+        "end_date": payload.end_date,
+        "days_blocked": created_count,
+    }
 
 
 @router.delete("/admin/blocks/{block_id}")

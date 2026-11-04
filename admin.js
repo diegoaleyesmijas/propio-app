@@ -323,6 +323,18 @@ async function createBlock(token, payload) {
   return data
 }
 
+async function createBlockRange(token, payload) {
+  const r = await fetch(`${API}/admin/blocks/range`, {
+    method: 'POST',
+    headers: _adminHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload)
+  })
+  if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.detail || 'Error creating block range')
+  return data
+}
+
 async function deleteBlock(token, id) {
   const r = await fetch(`${API}/admin/blocks/${id}`, { method: 'DELETE', headers: _adminHeaders() })
   if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
@@ -3740,15 +3752,21 @@ function BlocksView({ token, onToast }) {
   const [loading, setLoading] = useState(true)
   const [date, setDate] = useState('')  // empty = show all blocks
   const [showModal, setShowModal] = useState(false)
+  const [showVacationModal, setShowVacationModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState(null)
 
-  // Form
+  // Form (single day block)
   const [formDate, setFormDate] = useState('')
   const [formType, setFormType] = useState('full_day')
   const [formStart, setFormStart] = useState('')
   const [formEnd, setFormEnd] = useState('')
   const [formReason, setFormReason] = useState('')
+
+  // Vacation period form
+  const [formStartDate, setFormStartDate] = useState('')
+  const [formEndDate, setFormEndDate] = useState('')
+  const [vacationReason, setVacationReason] = useState('')
 
   const loadBlocks = useCallback(async () => {
     setLoading(true)
@@ -3771,6 +3789,10 @@ function BlocksView({ token, onToast }) {
     setFormDate(date || todayISO()); setFormType('full_day'); setFormStart(''); setFormEnd(''); setFormReason('')
   }
 
+  const resetVacationForm = () => {
+    setFormStartDate(todayISO()); setFormEndDate(todayISO()); setVacationReason('')
+  }
+
   const handleAdd = async () => {
     setSaving(true); setFeedback(null)
     try {
@@ -3779,6 +3801,30 @@ function BlocksView({ token, onToast }) {
       await createBlock(token, payload)
       setFeedback({ type: 'success', text: t('settings.block_saved') })
       setShowModal(false); resetForm(); loadBlocks()
+    } catch (e) { setFeedback({ type: 'error', text: e.message }) }
+    finally { setSaving(false) }
+  }
+
+  const handleVacation = async () => {
+    if (!formStartDate || !formEndDate) {
+      setFeedback({ type: 'error', text: t('settings.vacation_dates_required') })
+      return
+    }
+    if (formStartDate > formEndDate) {
+      setFeedback({ type: 'error', text: t('settings.vacation_dates_invalid') })
+      return
+    }
+    setSaving(true); setFeedback(null)
+    try {
+      const payload = {
+        start_date: formStartDate,
+        end_date: formEndDate,
+        block_type: 'full_day',
+        reason: vacationReason || t('settings.vacations')
+      }
+      await createBlockRange(token, payload)
+      setFeedback({ type: 'success', text: t('settings.vacation_saved') })
+      setShowVacationModal(false); resetVacationForm(); loadBlocks()
     } catch (e) { setFeedback({ type: 'error', text: e.message }) }
     finally { setSaving(false) }
   }
@@ -3807,10 +3853,16 @@ function BlocksView({ token, onToast }) {
           className: 'text-[10px] font-bold py-1 px-2 rounded-lg bg-stone-100 text-stone-500 hover:bg-stone-200 cursor-pointer'
         }, 'x')
       ),
-      h('button', {
-        onClick: () => { resetForm(); setShowModal(true) },
-        className: 'text-xs font-bold py-2.5 px-3 rounded-xl bg-propio-500 hover:bg-propio-600 text-white shadow active:scale-[0.98] transition cursor-pointer'
-      }, t('settings.add_block'))
+      h('div', { className: 'flex items-center gap-2' },
+        h('button', {
+          onClick: () => { resetForm(); setShowModal(true) },
+          className: 'text-xs font-bold py-2.5 px-3 rounded-xl bg-propio-500 hover:bg-propio-600 text-white shadow active:scale-[0.98] transition cursor-pointer'
+        }, t('settings.add_block')),
+        h('button', {
+          onClick: () => { resetVacationForm(); setShowVacationModal(true) },
+          className: 'text-xs font-bold py-2.5 px-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white shadow active:scale-[0.98] transition cursor-pointer'
+        }, '✈ ' + t('settings.vacations'))
+      )
     ),
 
     blocks.length === 0
@@ -3907,6 +3959,53 @@ function BlocksView({ token, onToast }) {
           onClick: handleAdd, disabled: saving || !formDate,
           className: 'w-full py-3 rounded-2xl bg-propio-500 hover:bg-propio-600 text-white font-bold shadow-lg active:scale-[0.98] transition cursor-pointer disabled:opacity-50'
         }, saving ? t('settings.saving') : t('settings.save_season'))
+      )
+    ),
+
+    // Vacation period modal
+    showVacationModal && h('div', {
+      className: 'fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center',
+      onClick: (e) => { if (e.target === e.currentTarget) setShowVacationModal(false) }
+    },
+      h('div', { className: 'bg-stone-50 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 relative' },
+        h('button', {
+          onClick: () => setShowVacationModal(false),
+          className: 'absolute top-4 right-4 w-8 h-8 rounded-full bg-white border border-stone-200 flex items-center justify-center text-stone-500 active:scale-[0.98] cursor-pointer'
+        }, h(SvgClose)),
+
+        h('h3', { className: 'font-bold text-base text-stone-800 mb-4' }, '✈ ' + t('settings.vacations')),
+        h('p', { className: 'text-xs text-stone-500 mb-4' }, t('settings.vacations_description')),
+
+        h('div', { className: 'grid grid-cols-2 gap-3 mb-3' },
+          h('div', null,
+            h('label', { className: 'text-xs font-semibold text-stone-500' }, t('settings.vacation_start')),
+            h('input', {
+              type: 'date', value: formStartDate, onChange: e => setFormStartDate(e.target.value),
+              className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
+            })
+          ),
+          h('div', null,
+            h('label', { className: 'text-xs font-semibold text-stone-500' }, t('settings.vacation_end')),
+            h('input', {
+              type: 'date', value: formEndDate, onChange: e => setFormEndDate(e.target.value), min: formStartDate,
+              className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
+            })
+          )
+        ),
+
+        h('div', { className: 'mb-4' },
+          h('label', { className: 'text-xs font-semibold text-stone-500' }, t('settings.vacation_reason')),
+          h('input', {
+            type: 'text', value: vacationReason, onChange: e => setVacationReason(e.target.value),
+            placeholder: t('settings.vacation_reason_ph'),
+            className: 'w-full px-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm focus:outline-none focus:border-propio-500 mt-1'
+          })
+        ),
+
+        h('button', {
+          onClick: handleVacation, disabled: saving || !formStartDate || !formEndDate,
+          className: 'w-full py-3 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white font-bold shadow-lg active:scale-[0.98] transition cursor-pointer disabled:opacity-50'
+        }, saving ? t('settings.saving') : t('settings.vacation_save'))
       )
     )
   )
