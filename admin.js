@@ -904,6 +904,12 @@ const DetailModal = React.memo(function DetailModal({ appt, onClose, onComplete,
           onClick: (e) => { e.stopPropagation(); onClose(); onEdit(appt) },
           className: 'flex-1 py-2.5 rounded-xl bg-blue-500 text-white font-bold text-sm active:scale-[0.98] transition cursor-pointer hover:bg-blue-600'
         }, '✎ ' + t('admin.edit')),
+        appt.customer_phone && h('a', {
+          href: 'https://wa.me/' + cleanPhone(appt.customer_phone),
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          className: 'flex-1 py-2.5 rounded-xl bg-green-500 text-white font-bold text-sm active:scale-[0.98] transition cursor-pointer hover:bg-green-600 text-center'
+        }, '💬 ' + t('admin.whatsapp')),
         h('button', {
           onClick: (e) => { e.stopPropagation(); onComplete(appt.id); onClose() },
           disabled: busyId === appt.id,

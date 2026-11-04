@@ -14,11 +14,11 @@ class Settings(BaseSettings):
     # Business hours per weekday (0=Monday … 6=Sunday). Empty list = closed.
     # Each tuple is (open, close) in local time.
     BUSINESS_HOURS: dict[int, list[tuple[time, time]]] = {
-        0: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 30))],
-        1: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 30))],
-        2: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 30))],
-        3: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 30))],
-        4: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 30))],
+        0: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 0))],
+        1: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 0))],
+        2: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 0))],
+        3: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 0))],
+        4: [(time(10, 0), time(14, 0)), (time(16, 30), time(20, 0))],
         5: [(time(10, 0), time(15, 30))],
         6: [],
     }
