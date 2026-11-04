@@ -1123,19 +1123,28 @@ function WeekView({ weeklyData, onComplete, onCancel, busyId, loading, onToast, 
         const d = new Date(dayKey + 'T12:00:00')
         const dayName = t('agenda.day_short_' + ((d.getDay() + 6) % 7))
         const isToday = dayKey === todayISO()
+        const isBlocked = (weeklyData.blocked_dates || []).includes(dayKey)
         const busyLevel = appts.length === 0 ? 'empty' : appts.length <= 2 ? 'light' : 'busy'
         return h('div', {
           key: dayKey,
-          onClick: () => onSelectDay(dayKey),
-          className: 'flex-1 min-w-[110px] rounded-2xl cursor-pointer hover:shadow-md transition-shadow ' + (isToday ? 'bg-propio-50 ring-2 ring-propio-200' : 'bg-white border border-stone-200')
+          onClick: () => !isBlocked && onSelectDay(dayKey),
+          className: 'flex-1 min-w-[110px] rounded-2xl transition-shadow ' +
+            (isBlocked
+              ? 'bg-red-50 border border-red-200 cursor-not-allowed'
+              : isToday ? 'bg-propio-50 ring-2 ring-propio-200 cursor-pointer hover:shadow-md' : 'bg-white border border-stone-200 cursor-pointer hover:shadow-md')
         },
           // Day header
           h('div', {
             className: 'text-center px-2 py-2 ' + (isToday ? '' : 'border-b border-stone-100')
           },
             h('p', { className: 'text-[11px] font-bold uppercase tracking-wider ' + (isToday ? 'text-propio-700' : 'text-stone-500') }, dayName),
-            h('p', { className: 'text-xl font-extrabold leading-tight ' + (isToday ? 'text-propio-800' : 'text-stone-800') }, d.getDate()),
+            h('p', { className: 'text-xl font-extrabold leading-tight ' + (isToday ? 'text-propio-800' : isBlocked ? 'text-red-400 line-through' : 'text-stone-800') }, d.getDate()),
             h('p', { className: 'text-[9px] text-stone-400 uppercase' }, d.toLocaleDateString(locale(), { month: 'short' }).replace('.', '')),
+            // Blocked indicator
+            isBlocked
+              ? h('div', { className: 'flex justify-center mt-1.5' },
+                  h('span', { className: 'text-[9px] font-bold text-red-500 uppercase tracking-wider' }, '✈ ' + t('settings.vacations')))
+              :
             // Busy indicator
             h('div', { className: 'flex justify-center gap-0.5 mt-1.5' },
               appts.length === 0
@@ -1584,20 +1593,27 @@ function MonthView({ monthlyData, monthStr, onSelectDay, selectedDay, selectedAp
         const dayData = monthlyData.days ? monthlyData.days[dayStr] : null
         const isSel = selectedDay === dayStr
         const isToday = isCurrentMonth && day === todayDay
+        const isBlocked = (monthlyData.blocked_dates || []).includes(dayStr)
         const count = dayData ? dayData.count : 0
+
+        const cellClass = isBlocked
+          ? 'bg-red-50 text-red-300 line-through cursor-not-allowed hover:brightness-100'
+          : isSel
+            ? 'ring-2 ring-propio-500 shadow-md ' + heatLevel(count)
+            : count > 0 ? heatLevel(count) + ' hover:brightness-95'
+            : isToday ? 'bg-ivory-dark text-dark-500'
+            : 'hover:bg-stone-50 text-stone-500'
 
         return h('button', {
           key: dayStr,
-          onClick: () => onSelectDay(dayStr),
-          className: 'relative flex flex-col items-center justify-center rounded-xl py-2.5 transition active:scale-[0.98] cursor-pointer ' +
-            (isSel
-              ? 'ring-2 ring-propio-500 shadow-md ' + heatLevel(count)
-              : count > 0 ? heatLevel(count) + ' hover:brightness-95'
-              : isToday ? 'bg-ivory-dark text-dark-500'
-              : 'hover:bg-stone-50 text-stone-500')
+          onClick: () => !isBlocked && onSelectDay(dayStr),
+          disabled: isBlocked,
+          className: 'relative flex flex-col items-center justify-center rounded-xl py-2.5 transition active:scale-[0.98] ' +
+            (isBlocked ? 'cursor-not-allowed' : 'cursor-pointer') + ' ' + cellClass
         },
+          isBlocked && h('span', { className: 'absolute top-0.5 right-0.5 text-[8px] text-red-400' }, '✈'),
           h('span', { className: 'text-sm font-semibold' }, String(day)),
-          count > 0 && h('span', {
+          count > 0 && !isBlocked && h('span', {
             className: 'text-[9px] font-bold mt-0.5 ' + (count >= 4 ? 'text-white/80' : 'text-stone-500')
           }, String(count))
         )

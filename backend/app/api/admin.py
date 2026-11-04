@@ -133,7 +133,21 @@ def admin_agenda_weekly(date: str, db: Session = Depends(get_session)):
             if day_local in days:
                 days[day_local].append(_appointment_row(r))
 
-    return {"start_date": date, "days": days}
+    # Get blocked dates in the week
+    blocked_rows = db.execute(
+        text("""
+            SELECT DISTINCT block_date
+            FROM time_blocks
+            WHERE block_type = 'full_day'
+              AND block_date >= :start
+              AND block_date < :end
+            ORDER BY block_date
+        """),
+        {"start": target, "end": target + timedelta(days=7)}
+    ).fetchall()
+    blocked_dates = [r[0].isoformat() for r in blocked_rows]
+
+    return {"start_date": date, "days": days, "blocked_dates": blocked_dates}
 
 
 @router.get("/admin/agenda/monthly")
@@ -180,7 +194,21 @@ def admin_agenda_monthly(date: str, db: Session = Depends(get_session)):
             elif r[9] == "cancelled":
                 daily[day]["cancelled"] += 1
 
-    return {"month": date, "days": daily}
+    # Get blocked dates (full_day blocks) in the month
+    blocked_rows = db.execute(
+        text("""
+            SELECT DISTINCT block_date
+            FROM time_blocks
+            WHERE block_type = 'full_day'
+              AND block_date >= :start
+              AND block_date < :end
+            ORDER BY block_date
+        """),
+        {"start": target, "end": end_date}
+    ).fetchall()
+    blocked_dates = [r[0].isoformat() for r in blocked_rows]
+
+    return {"month": date, "days": daily, "blocked_dates": blocked_dates}
 
 
 @router.get("/admin/clients/export")
