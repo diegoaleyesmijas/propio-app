@@ -1108,7 +1108,7 @@ function NotificationBell({ notifications, newCount, soundEnabled, onToggleSound
 
 // ── WeekView ──────────────────────────────────────────────────────────
 
-function WeekView({ weeklyData, onComplete, onCancel, busyId, loading, onToast, density, onSelectDay }) {
+function WeekView({ weeklyData, onComplete, onCancel, busyId, loading, onToast, density, onSelectDay, onAppointmentClick }) {
   if (loading) return h(LoadingSkeleton)
   if (!weeklyData) return h(EmptyState, { title: t('admin.agenda_empty'), sub: t('admin.agenda_empty_sub') })
 
@@ -1164,7 +1164,8 @@ function WeekView({ weeklyData, onComplete, onCancel, busyId, loading, onToast, 
                   const apptTextSize = isCompact ? 'text-[9px]' : 'text-xs'
                   return h('div', {
                     key: a.id,
-                    className: 'rounded-lg overflow-hidden ' + apptPadding + ' ' + (isPast ? 'bg-stone-100' : 'border'),
+                    onClick: (e) => { e.stopPropagation(); onAppointmentClick && onAppointmentClick(a) },
+                    className: 'rounded-lg overflow-hidden cursor-pointer hover:shadow-sm transition ' + apptPadding + ' ' + (isPast ? 'bg-stone-100' : 'border'),
                     style: !isPast ? serviceBgPastel(a.service_color) : {},
                   },
                     h('div', { className: 'flex items-center justify-between gap-1' },
@@ -5061,6 +5062,7 @@ function AdminPanel() {
           onToast: setToast,
           density,
           onSelectDay: handleWeekDaySelect,
+          onAppointmentClick: setDetailModalAppt,
         }),
 
         // Month view
