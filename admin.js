@@ -324,13 +324,16 @@ async function createBlock(token, payload) {
 }
 
 async function createBlockRange(token, payload) {
+  console.log('createBlockRange called with:', { token: token ? 'exists' : 'missing', payload })
   const r = await fetch(`${API}/admin/blocks/range`, {
     method: 'POST',
     headers: _adminHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(payload)
   })
+  console.log('createBlockRange response status:', r.status)
   if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
   const data = await r.json()
+  console.log('createBlockRange response data:', data)
   if (!r.ok) throw new Error(data.detail || 'Error creating block range')
   return data
 }
@@ -3806,6 +3809,7 @@ function BlocksView({ token, onToast }) {
   }
 
   const handleVacation = async () => {
+    console.log('handleVacation called', { formStartDate, formEndDate, vacationReason })
     if (!formStartDate || !formEndDate) {
       setFeedback({ type: 'error', text: t('settings.vacation_dates_required') })
       return
@@ -3822,10 +3826,15 @@ function BlocksView({ token, onToast }) {
         block_type: 'full_day',
         reason: vacationReason || t('settings.vacations')
       }
-      await createBlockRange(token, payload)
+      console.log('Calling createBlockRange with payload:', payload)
+      const result = await createBlockRange(token, payload)
+      console.log('createBlockRange result:', result)
       setFeedback({ type: 'success', text: t('settings.vacation_saved') })
       setShowVacationModal(false); resetVacationForm(); loadBlocks()
-    } catch (e) { setFeedback({ type: 'error', text: e.message }) }
+    } catch (e) { 
+      console.error('Error in handleVacation:', e)
+      setFeedback({ type: 'error', text: e.message }) 
+    }
     finally { setSaving(false) }
   }
 
