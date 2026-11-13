@@ -601,6 +601,8 @@ def admin_reschedule_booking(
             new_customer_email=payload.customer_email,
             allow_overlap=payload.allow_overlap,
         )
+    except HTTPException:
+        raise  # 400/409 semánticos de la lógica de negocio — NO reenvolver como 500
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
