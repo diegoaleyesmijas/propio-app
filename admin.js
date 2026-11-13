@@ -1624,8 +1624,8 @@ function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId
           return h('div', {
             key: a.id,
             onClick: (e) => {
-              if (clickGuardRef.current) { clickGuardRef.current = false; return }
               e.stopPropagation()
+              if (clickGuardRef.current) { clickGuardRef.current = false; return }
               onAppointmentClick && onAppointmentClick(a)
             },
             onPointerDown: (e) => handleCardPointerDown(e, a),
@@ -1896,10 +1896,23 @@ function CreateBookingModal({ services, editAppt, presetSlot, onClose, onSuccess
       .then(d => {
         const list = d.slots || []
         setSlots(list)
-        // Hueco tocado en la grilla: preseleccionar si existe en la parrilla
-        if (presetSlot && !presetAppliedRef.current && list.some(s => s.time === presetSlot)) {
-          setSelSlot(presetSlot)
-          presetAppliedRef.current = true
+        // Hora tocada en la grilla: match exacto o tramo más próximo ≥ tocado
+        // (≤30 min) → preseleccionar y saltar directo al formulario
+        if (presetSlot && !editAppt && !presetAppliedRef.current) {
+          let match = list.find(s => s.time === presetSlot)
+          if (!match) {
+            const after = list.filter(s => s.time >= presetSlot).sort((a, b) => a.time.localeCompare(b.time))
+            if (after.length) {
+              const diffMin = (new Date(after[0].time) - new Date(presetSlot)) / 60000
+              if (diffMin <= 30) match = after[0]
+            }
+          }
+          if (match) {
+            presetAppliedRef.current = true
+            setSelSlot(match.time)
+            setStep('form')
+            return
+          }
         }
       })
       .catch(e => setError(e.message))
