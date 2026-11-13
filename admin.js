@@ -546,6 +546,12 @@ function getApptHeight(startTime, endTime, hourHeight) {
   return Math.max(42, (min / 60) * hourHeight)  // mínimo 42px para legibilidad incluso en citas cortas
 }
 
+// ISO de slot en formato del backend ("...+00:00", sin milisegundos)
+function toSlotISO(dateStr, hh, mm) {
+  const d = new Date(dateStr + 'T' + String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0') + ':00')
+  return d.toISOString().replace('.000Z', '+00:00')
+}
+
 // ── Booksy-inspired card visual constants ──
 const APPT_GAP = 4           // px de separación vertical entre citas (arriba y abajo)
 const APPT_BORDER_LEFT = 4   // px del ancho de la barra de color izquierda (Booksy usa 4-5px)
@@ -1208,7 +1214,7 @@ function WeekView({ weeklyData, onComplete, onCancel, busyId, loading, onToast, 
 }
 
 // ── DayView (time grid) ──
-function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId, density, onAppointmentClick }) {
+function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId, density, onAppointmentClick, onGridTap, onMoved, onError }) {
   const scrollRef = React.useRef(null)
   const [now, setNow] = React.useState(new Date())
   const isToday = date === todayISO()
@@ -1301,6 +1307,125 @@ function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId
     return layout
   }, [visibleAppointments])
 
+  // ── Arrastrar cita para moverla (solo intra-día, snap 5 min) ──
+  const dragRef = React.useRef(null)        // {id, startY, startTop, moved, active, timer}
+  const dragLatestRef = React.useRef(null)  // último {minutes} calculado
+  const clickGuardRef = React.useRef(false) // suppress click tras soltar un drag
+  const [dragState, setDragState] = React.useState(null) // {id, top} para render
+
+  const dragMinsToTop = (mins) => (mins / 60) * hourHeight
+  const dragTopToMins = (top) => Math.round(((top / hourHeight) * 60) / 5) * 5
+
+  const commitDragMove = (appt, minutesOfDay) => {
+    const hh = Math.floor(minutesOfDay / 60)
+    const mm = minutesOfDay % 60
+    if (hh < 0 || hh + (minutesOfDay % 60) / 60 >= (BUSINESS_END - BUSINESS_START)) { setDragState(null); return }
+    const newStart = toSlotISO(date, hh, mm)
+    const durMin = (new Date(appt.end_time) - new Date(appt.start_time)) / 60000
+    const s = new Date(newStart).getTime()
+    const e = s + durMin * 60000
+    const conflict = visibleAppointments.find(o =>
+      o.id !== appt.id && o.status !== 'cancelled' &&
+      new Date(o.start_time).getTime() < e && new Date(o.end_time).getTime() > s)
+    const doPatch = (allow) => {
+      const svcId = appt.service_id
+      if (!svcId) { onError && onError(t('error.reschedule')); setDragState(null); return }
+      adminRescheduleBooking(appt.id, {
+        service_id: svcId,
+        customer_name: appt.customer_name,
+        customer_phone: appt.customer_phone,
+        customer_email: appt.customer_email || null,
+        start_time: newStart,
+        allow_overlap: allow,
+      })
+        .then(() => { setDragState(null); onMoved && onMoved() })
+        .catch(err => { setDragState(null); onError && onError(err.message); onMoved && onMoved() })
+    }
+    if (conflict) {
+      if (window.confirm(t('admin.overlap_confirm', fmtTime(newStart), normalizeName(conflict.customer_name)))) {
+        doPatch(true)
+      } else {
+        setDragState(null) // volver la cita a su sitio
+      }
+    } else {
+      doPatch(false)
+    }
+  }
+
+  const handleCardPointerDown = (e, a) => {
+    if (a.status !== 'booked') return
+    if (busyId === a.id) return
+    const d = {
+      id: a.id,
+      startY: e.clientY,
+      startTop: getApptTop(a.start_time, hourHeight),
+      moved: false,
+      active: false,
+      timer: null,
+    }
+    if (e.pointerType === 'touch') {
+      // táctil: long-press para activar drag (evita robar el scroll)
+      d.timer = setTimeout(() => {
+        if (dragRef.current && dragRef.current.id === a.id) {
+          dragRef.current.active = true
+          setDragState({ id: a.id, top: d.startTop })
+        }
+      }, 250)
+    }
+    dragRef.current = d
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch {}
+  }
+
+  const handleCardPointerMove = (e, a) => {
+    const d = dragRef.current
+    if (!d || d.id !== a.id) return
+    const dy = e.clientY - d.startY
+    if (!d.active) {
+      if (Math.abs(dy) > 6) {
+        if (e.pointerType === 'touch') {
+          // movió el dedo pronto → estaba haciendo scroll
+          clearTimeout(d.timer); dragRef.current = null
+          return
+        }
+        // ratón: drag directo
+        d.active = true; d.moved = true
+        setDragState({ id: a.id, top: d.startTop })
+      }
+      return
+    }
+    d.moved = true
+    const rawTop = Math.max(0, d.startTop + dy)
+    const mins = Math.max(0, Math.min(dragTopToMins(rawTop), (BUSINESS_END - BUSINESS_START) * 60 - 5))
+    dragLatestRef.current = { minutes: mins }
+    setDragState({ id: a.id, top: dragMinsToTop(mins) })
+  }
+
+  const handleCardPointerUp = (e, a) => {
+    const d = dragRef.current
+    if (!d || d.id !== a.id) return
+    clearTimeout(d.timer)
+    if (d.active) {
+      clickGuardRef.current = true
+      const latest = dragLatestRef.current
+      const mins = latest ? latest.minutes : dragTopToMins(d.startTop)
+      dragRef.current = null; dragLatestRef.current = null
+      const appt = visibleAppointments.find(x => x.id === a.id) || a
+      commitDragMove(appt, mins)
+    } else {
+      dragRef.current = null
+      // tap sin arrastre → el onClick del card abre el modal de detalles
+    }
+  }
+
+  // Bloquear el scroll táctil mientras se arrastra
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onTM = (ev) => { if (dragRef.current && dragRef.current.active) ev.preventDefault() }
+    el.addEventListener('touchmove', onTM, { passive: false })
+    return () => el.removeEventListener('touchmove', onTM)
+  }, [date])
+
   // Build hour slots array
   const hours = []
   for (let hour = BUSINESS_START; hour < BUSINESS_END; hour++) {
@@ -1315,7 +1440,18 @@ function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId
       className: 'overflow-y-auto no-scrollbar',
       style: { maxHeight: 'calc(100vh - 150px)' }
     },
-      h('div', { className: 'relative', style: { minHeight: totalHeight + 'px' } },
+      h('div', { className: 'relative', style: { minHeight: totalHeight + 'px' },
+        onClick: (e) => {
+          // Tocar hueco vacío → crear cita en ese tramo
+          if (clickGuardRef.current) { clickGuardRef.current = false; return }
+          const rect = e.currentTarget.getBoundingClientRect()
+          const mins = dragTopToMins(e.clientY - rect.top)
+          const hh = Math.floor(mins / 60)
+          const mm = mins % 60
+          if (mins < 0 || (hh >= (BUSINESS_END - BUSINESS_START))) return
+          onGridTap && onGridTap(toSlotISO(date, hh, mm))
+        }
+      },
 
         // ── Background grid: hour rows + time labels ──
         hours.map(hour =>
@@ -1475,10 +1611,28 @@ function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId
                 opacity: isPast ? 0.75 : 1,
               }
 
+          const isDragging = dragState && dragState.id === a.id
+          if (isDragging) {
+            // durante el arrastre: top fijado al tramo snap actual
+            cardStyle.top = dragState.top + 'px'
+            cardStyle.zIndex = 30
+            cardStyle.boxShadow = '0 8px 20px rgba(0,0,0,0.18)'
+            cardStyle.opacity = 0.95
+            cardStyle.transform = 'scale(1.02)'
+          }
+
           return h('div', {
             key: a.id,
-            onClick: () => onAppointmentClick && onAppointmentClick(a),
-            className: 'absolute rounded-lg cursor-pointer transition-all duration-150 hover:shadow-md active:scale-[0.98] overflow-hidden',
+            onClick: (e) => {
+              if (clickGuardRef.current) { clickGuardRef.current = false; return }
+              e.stopPropagation()
+              onAppointmentClick && onAppointmentClick(a)
+            },
+            onPointerDown: (e) => handleCardPointerDown(e, a),
+            onPointerMove: (e) => handleCardPointerMove(e, a),
+            onPointerUp: (e) => handleCardPointerUp(e, a),
+            onPointerCancel: () => { if (dragRef.current) { clearTimeout(dragRef.current.timer); dragRef.current = null; setDragState(null) } },
+            className: 'absolute rounded-lg cursor-pointer ' + (isDragging ? '' : 'transition-all duration-150 hover:shadow-md active:scale-[0.98] overflow-hidden') + (a.status === 'booked' && !isDragging ? ' cursor-grab' : ''),
             style: cardStyle
           },
             // ── Compact layout: hora-fin · nombre ● estado + botón ──
@@ -1717,10 +1871,11 @@ function MonthView({ monthlyData, monthStr, onSelectDay, selectedDay, selectedAp
 
 // ── CreateBookingModal ────────────────────────────────────────────────
 
-function CreateBookingModal({ services, editAppt, onClose, onSuccess }) {
+function CreateBookingModal({ services, editAppt, presetSlot, onClose, onSuccess }) {
+  const presetAppliedRef = useRef(false)
   const [step, setStep] = useState(editAppt ? 'slot' : 'service')
   const [selService, setSelService] = useState(editAppt ? services.find(s => s.name === editAppt.service_name) : null)
-  const [date, setDate] = useState(editAppt ? editAppt.start_time.split('T')[0] : todayISO())
+  const [date, setDate] = useState(editAppt ? editAppt.start_time.split('T')[0] : (presetSlot ? presetSlot.split('T')[0] : todayISO()))
   const [slots, setSlots] = useState([])
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [selSlot, setSelSlot] = useState(editAppt ? editAppt.start_time : null)
@@ -1738,7 +1893,15 @@ function CreateBookingModal({ services, editAppt, onClose, onSuccess }) {
     setLoadingSlots(true); setError(null); setSelSlot(null)
     setOverlapInfo(null)
     getAdminSlots(date, selService.id, editAppt ? editAppt.id : null)
-      .then(d => setSlots(d.slots || []))
+      .then(d => {
+        const list = d.slots || []
+        setSlots(list)
+        // Hueco tocado en la grilla: preseleccionar si existe en la parrilla
+        if (presetSlot && !presetAppliedRef.current && list.some(s => s.time === presetSlot)) {
+          setSelSlot(presetSlot)
+          presetAppliedRef.current = true
+        }
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoadingSlots(false))
   }, [step, selService, date])
@@ -4522,6 +4685,7 @@ function AdminPanel() {
   const [busyId, setBusyId] = useState(null)
   const [detailModalAppt, setDetailModalAppt] = useState(null)
   const [editAppt, setEditAppt] = useState(null)
+  const [tapSlot, setTapSlot] = useState(null)
 
   // Client import state
   const [showImportModal, setShowImportModal] = useState(false)
@@ -4922,6 +5086,8 @@ function AdminPanel() {
 
   const handleCreateSuccess = () => {
     setShowModal(false)
+    setEditAppt(null)
+    setTapSlot(null)
     // Refresh current view
     if (tab === 'agenda') {
       if (agendaView === 'day') {
@@ -5146,6 +5312,11 @@ function AdminPanel() {
                 busyId,
                 density,
                 onAppointmentClick: setDetailModalAppt,
+                onGridTap: (iso) => { setTapSlot(iso); setShowModal(true) },
+                onMoved: () => {
+                  getSummary(date).then(d => setAppointments(d.appointments || [])).catch(() => {})
+                },
+                onError: (msg) => setError(msg),
               })
         ),
 
@@ -5646,7 +5817,8 @@ function AdminPanel() {
     showModal && h(CreateBookingModal, {
       services,
       editAppt,
-      onClose: () => { setShowModal(false); setEditAppt(null) },
+      presetSlot: tapSlot,
+      onClose: () => { setShowModal(false); setEditAppt(null); setTapSlot(null) },
       onSuccess: handleCreateSuccess
     }),
 

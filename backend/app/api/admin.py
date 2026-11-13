@@ -60,6 +60,7 @@ def _appointment_row(r):
         "client_id": r[12] if len(r) > 12 else None,
         "is_first_booking": r[13] if len(r) > 13 else False,
         "allow_overlap": bool(r[14]) if len(r) > 14 and r[14] is not None else False,
+        "service_id": r[15] if len(r) > 15 else None,
     }
 
 
@@ -75,7 +76,8 @@ SUMMARY_COLS = NOTIF_COLS + """,
          WHEN (SELECT COUNT(*) FROM appointments a2
                WHERE a2.client_id = a.client_id AND a2.status != 'cancelled' AND a2.id != a.id) = 0
          THEN TRUE ELSE FALSE END AS is_first_booking,
-    a.allow_overlap"""
+    a.allow_overlap,
+    a.service_id"""
 
 
 @router.get("/admin/summary")
