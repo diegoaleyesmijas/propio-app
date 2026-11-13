@@ -1316,12 +1316,14 @@ function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId
   const dragMinsToTop = (mins) => (mins / 60) * hourHeight
   const dragTopToMins = (top) => Math.round(((top / hourHeight) * 60) / 5) * 5
 
-  const commitDragMove = (appt, minutesOfDay) => {
-    const hh = Math.floor(minutesOfDay / 60)
-    const mm = minutesOfDay % 60
-    if (hh < 0 || hh + (minutesOfDay % 60) / 60 >= (BUSINESS_END - BUSINESS_START)) { setDragState(null); return }
-    const newStart = toSlotISO(date, hh, mm)
+  const commitDragMove = (appt, minutesOffset) => {
+    // minutesOffset = minutos desde el inicio visible de la grilla (BUSINESS_START)
     const durMin = (new Date(appt.end_time) - new Date(appt.start_time)) / 60000
+    const totalMins = BUSINESS_START * 60 + minutesOffset
+    if (totalMins < 0 || totalMins + durMin > BUSINESS_END * 60) { setDragState(null); return }
+    const hh = Math.floor(totalMins / 60)
+    const mm = totalMins % 60
+    const newStart = toSlotISO(date, hh, mm)
     const s = new Date(newStart).getTime()
     const e = s + durMin * 60000
     const conflict = visibleAppointments.find(o =>
@@ -1446,9 +1448,10 @@ function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId
           if (clickGuardRef.current) { clickGuardRef.current = false; return }
           const rect = e.currentTarget.getBoundingClientRect()
           const mins = dragTopToMins(e.clientY - rect.top)
-          const hh = Math.floor(mins / 60)
-          const mm = mins % 60
-          if (mins < 0 || (hh >= (BUSINESS_END - BUSINESS_START))) return
+          const totalMins = BUSINESS_START * 60 + mins
+          if (mins < 0 || totalMins >= BUSINESS_END * 60) return
+          const hh = Math.floor(totalMins / 60)
+          const mm = totalMins % 60
           onGridTap && onGridTap(toSlotISO(date, hh, mm))
         }
       },
