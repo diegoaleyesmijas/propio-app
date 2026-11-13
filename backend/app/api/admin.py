@@ -27,7 +27,7 @@ from app.db.database import get_session
 from app.db.models import Client, Appointment
 from app.schemas import AdminBookingCreate, ResetDemoRequest, ResetDemoResponse, ServiceCreate, ServiceUpdate
 from app.core.config import settings, TZ
-from app.core.logic import create_appointment
+from app.core.logic import create_appointment, get_admin_slots
 from app.core.email import background_send_confirmation, background_send_cancellation
 from app.core.lang import parse_lang
 from app.core.state_machine import validate_transition
@@ -59,6 +59,7 @@ def _appointment_row(r):
         "notification_status": r[11] if len(r) > 11 else None,
         "client_id": r[12] if len(r) > 12 else None,
         "is_first_booking": r[13] if len(r) > 13 else False,
+        "allow_overlap": bool(r[14]) if len(r) > 14 and r[14] is not None else False,
     }
 
 
@@ -73,7 +74,8 @@ SUMMARY_COLS = NOTIF_COLS + """,
     CASE WHEN a.client_id IS NULL THEN FALSE
          WHEN (SELECT COUNT(*) FROM appointments a2
                WHERE a2.client_id = a.client_id AND a2.status != 'cancelled' AND a2.id != a.id) = 0
-         THEN TRUE ELSE FALSE END AS is_first_booking"""
+         THEN TRUE ELSE FALSE END AS is_first_booking,
+    a.allow_overlap"""
 
 
 @router.get("/admin/summary")
@@ -97,6 +99,20 @@ def admin_summary(date: str, db: Session = Depends(get_session)):
         {"start_dt": start_dt, "end_dt": end_dt}
     ).fetchall()
     return {"date": date, "appointments": [_appointment_row(r) for r in rows]}
+
+
+@router.get("/admin/slots")
+def admin_slots(date: str, service_id: int, exclude_id: Optional[int] = None, db: Session = Depends(get_session)):
+    """Admin booking grid for a date: all slots with free/busy status and
+    occupant name. Lets the barber see occupied slots and coexist ("pisar").
+    exclude_id omits an appointment (when editing, so it doesn't mark its own
+    current slot as busy)."""
+    try:
+        target = _date.fromisoformat(date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    slots = get_admin_slots(db, service_id, target, exclude_appointment_id=exclude_id)
+    return {"date": date, "service_id": service_id, "slots": slots}
 
 
 @router.get("/admin/agenda/weekly")
@@ -526,6 +542,7 @@ def admin_create_booking(
         is_first_time=payload.is_first_time,
         is_demo=payload.is_demo,
         check_alignment=False,
+        allow_overlap=payload.allow_overlap,
     )
     background_tasks.add_task(
         background_send_confirmation,
@@ -580,6 +597,7 @@ def admin_reschedule_booking(
             new_customer_name=payload.customer_name,
             new_customer_phone=payload.customer_phone,
             new_customer_email=payload.customer_email,
+            allow_overlap=payload.allow_overlap,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

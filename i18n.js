@@ -84,6 +84,10 @@ const dict = {
     'admin.cancel': 'Cancelar',
     'admin.whatsapp': 'WhatsApp',
     'admin.edit': 'Editar',
+    'admin.overlap_confirm': 'El tramo {0} ya está ocupado por {1}. ¿Quieres convivir en ese tramo con la cita vigente?',
+    'admin.overlap_yes': 'Sí, convivir en ese tramo',
+    'admin.overlap_no': 'Elegir otro',
+    'admin.overlap_badge': 'Cita convivida',
     'admin.cancel_confirm': '¿Anular esta reserva? La cita se cancelará permanentemente.',
     'admin.refresh': 'Refrescar',
 
@@ -504,6 +508,10 @@ const dict = {
     'admin.cancel': 'Cancel',
     'admin.whatsapp': 'WhatsApp',
     'admin.edit': 'Edit',
+    'admin.overlap_confirm': 'The {0} slot is already taken by {1}. Do you want to coexist in that slot with the current appointment?',
+    'admin.overlap_yes': 'Yes, coexist in that slot',
+    'admin.overlap_no': 'Choose another',
+    'admin.overlap_badge': 'Coexisting appointment',
     'admin.cancel_confirm': 'Cancel this appointment? The booking will be permanently cancelled.',
     'admin.refresh': 'Refresh',
 

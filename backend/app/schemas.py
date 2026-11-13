@@ -116,6 +116,7 @@ class AdminBookingCreate(BaseModel):
     start_time: datetime
     is_first_time: Optional[bool] = None
     is_demo: Optional[bool] = None
+    allow_overlap: bool = False  # cita convivida: solo el admin puede pisar tramos ocupados
 
     @field_validator('customer_name', 'customer_phone', mode='before')
     @classmethod

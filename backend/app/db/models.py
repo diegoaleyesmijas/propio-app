@@ -53,6 +53,7 @@ class Appointment(SQLModel, table=True):
     status: str = Field(default="booked")
     notification_status: str = Field(default="pending")
     is_demo: bool = Field(default=False)
+    allow_overlap: bool = Field(default=False)  # cita convivida (solo admin)
     
     review_requested: bool = Field(default=False)
     recall_sent: bool = Field(default=False)

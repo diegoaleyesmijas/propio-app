@@ -156,6 +156,7 @@ def create_appointment(
     is_first_time: Optional[bool] = None,
     is_demo: Optional[bool] = None,
     check_alignment: bool = True,
+    allow_overlap: bool = False,
 ) -> dict:
     """
     Core booking logic shared by /book and /admin/appointments.
@@ -178,6 +179,28 @@ def create_appointment(
     if start.tzinfo is None:
         start = start.replace(tzinfo=timezone.utc)
     end = start + timedelta(minutes=service.duration_minutes)
+
+    # 2b. Public path (allow_overlap=False): serializar reservas del mismo
+    # servicio/día con advisory lock y re-chequear solapamiento. Las citas
+    # convividas (allow_overlap=true) quedan exentas de la constraint de BD,
+    # así que la protección anti-dobles-reservas del público vive aquí.
+    if not allow_overlap:
+        day_local = start.astimezone(TZ).date()
+        lock_key = "book:%s:%s" % (service.id, day_local.isoformat())
+        db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": lock_key})
+        overlap_count = db.execute(
+            text("""
+                SELECT COUNT(*) FROM appointments
+                WHERE status != 'cancelled'
+                  AND slot && tstzrange(:s, :e, '[)')
+            """),
+            {"s": start.isoformat(), "e": end.isoformat()}
+        ).scalar()
+        if overlap_count:
+            raise HTTPException(
+                status_code=409,
+                detail="This time slot is no longer available. Please choose another one."
+            )
 
     # 2b. Grid alignment (public bookings only)
     if check_alignment:
@@ -241,12 +264,13 @@ def create_appointment(
             text("""
                 INSERT INTO appointments (
                     service_id, client_id, customer_name, customer_email,
-                    customer_phone, slot, status, notification_status, is_demo
+                    customer_phone, slot, status, notification_status, is_demo,
+                    allow_overlap
                 )
                 VALUES (
                     :service_id, :client_id, :customer_name, :customer_email,
                     :customer_phone, tstzrange(:start_iso, :end_iso, '[)'),
-                    'booked', 'pending', :is_demo
+                    'booked', 'pending', :is_demo, :allow_overlap
                 )
                 RETURNING id, token_uuid
             """),
@@ -259,6 +283,7 @@ def create_appointment(
                 "start_iso": start.isoformat(),
                 "end_iso": end.isoformat(),
                 "is_demo": is_demo_val,
+                "allow_overlap": bool(allow_overlap),
             }
         ).first()
         db.commit()
@@ -302,6 +327,7 @@ def reschedule_appointment(
     new_customer_name: Optional[str] = None,
     new_customer_phone: Optional[str] = None,
     new_customer_email: Optional[str] = None,
+    allow_overlap: bool = False,
 ) -> dict:
     """
     Reschedule an existing appointment to a new time.
@@ -362,6 +388,7 @@ def reschedule_appointment(
                     customer_name = :customer_name,
                     customer_phone = :customer_phone,
                     customer_email = :customer_email,
+                    allow_overlap = :allow_overlap,
                     notification_status = 'pending'
                 WHERE id = :id
             """),
@@ -372,6 +399,7 @@ def reschedule_appointment(
                 "customer_name": final_name,
                 "customer_phone": final_phone,
                 "customer_email": final_email,
+                "allow_overlap": bool(allow_overlap),
                 "id": appt_id
             }
         )
@@ -488,3 +516,94 @@ def get_available_slots(db: Session, service_id: int, target_date: date_type) ->
             cursor_local += step
 
     return slots
+
+
+def get_admin_slots(db: Session, service_id: int, target_date: date_type, exclude_appointment_id: Optional[int] = None) -> List[dict]:
+    """
+    Admin view of the booking grid: returns ALL candidate slots for a service
+    on a date, each marked as free or busy (with the occupant's name).
+
+    Used by the admin panel so the barber can see occupied slots and choose
+    to "pisar" (coexist) with an existing appointment. Respects business
+    hours, holidays/seasons and time blocks exactly like the public grid —
+    blocked ranges are never offered, only appointment-occupied slots appear
+    as busy.
+    """
+    result = db.execute(
+        text("""
+            SELECT duration_minutes, slot_interval_minutes
+            FROM services WHERE id = :sid AND active = TRUE
+        """),
+        {"sid": service_id}
+    ).first()
+    if not result:
+        return []
+    duration_min = result[0]
+    duration = timedelta(minutes=duration_min)
+    step_min = result[1] or settings.SLOT_INTERVAL_MINUTES
+    if step_min <= 0:
+        step_min = settings.SLOT_INTERVAL_MINUTES
+
+    hours = get_business_hours_for_date(db, target_date)
+    weekday = target_date.weekday()
+    blocks = hours.get(weekday, [])
+    if not blocks:
+        return []
+
+    time_blocks = get_time_blocks_for_date(db, target_date)
+    if any(b["type"] == "full_day" for b in time_blocks):
+        return []
+
+    step = timedelta(minutes=step_min)
+    now_utc = datetime.now(timezone.utc)
+    out: List[dict] = []
+
+    for open_time, close_time in blocks:
+        open_local = datetime.combine(target_date, open_time).replace(tzinfo=TZ)
+        close_local = datetime.combine(target_date, close_time).replace(tzinfo=TZ)
+        open_utc = open_local.astimezone(timezone.utc)
+        close_utc = close_local.astimezone(timezone.utc)
+
+        rows = db.execute(
+            text("""
+                SELECT lower(slot) AS start, upper(slot) AS end, customer_name
+                FROM appointments
+                WHERE status != 'cancelled'
+                  AND slot && tstzrange(:open_dt, :close_dt, '[)')
+                  AND (:exclude_id IS NULL OR id != :exclude_id)
+            """),
+            {"open_dt": open_utc.isoformat(), "close_dt": close_utc.isoformat(), "exclude_id": exclude_appointment_id}
+        ).fetchall()
+        busy = [(r[0], r[1], r[2]) for r in rows]
+
+        cursor_local = open_local.replace(second=0, microsecond=0)
+        minutes_of_day = cursor_local.hour * 60 + cursor_local.minute
+        remainder = minutes_of_day % step_min
+        if remainder != 0 or open_local.second or open_local.microsecond:
+            advance = (step_min - remainder) % step_min or step_min
+            cursor_local = cursor_local + timedelta(minutes=advance)
+
+        while cursor_local + duration <= close_local:
+            start_utc = cursor_local.astimezone(timezone.utc)
+            end_utc = start_utc + duration
+
+            if start_utc > now_utc:
+                if is_slot_blocked(start_utc, end_utc, time_blocks):
+                    cursor_local += step
+                    continue
+
+                occupant = None
+                for b_start, b_end, b_name in busy:
+                    if start_utc < b_end and end_utc > b_start:
+                        occupant = b_name
+                        break
+
+                out.append({
+                    "time": start_utc.isoformat(),
+                    "busy": occupant is not None,
+                    "occupant": occupant,
+                })
+
+            cursor_local += step
+
+    return out

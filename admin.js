@@ -104,6 +104,14 @@ async function getAvailableSlots(serviceId, date) {
   return r.json()
 }
 
+async function getAdminSlots(date, serviceId, excludeId) {
+  const q = `service_id=${serviceId}${excludeId ? '&exclude_id=' + excludeId : ''}`
+  const r = await fetch(`${API}/admin/slots?date=${date}&${q}`, { headers: _adminHeaders() })
+  if (r.status === 401) { _handleUnauthorized(); throw new Error('API Key requerida') }
+  if (!r.ok) throw new Error(t('error.slots'))
+  return r.json()
+}
+
 async function adminCreateBooking(payload) {
   const r = await fetch(`${API}/admin/appointments`, {
     method: 'POST', headers: _adminHeaders({ 'Content-Type': 'application/json' }),
@@ -786,7 +794,8 @@ const AppointmentCard = React.memo(function AppointmentCard({ appt, onComplete, 
       h('div', { className: 'flex-1 min-w-0 px-3 py-2 flex flex-col justify-center gap-0.5' },
         h('div', { className: 'flex items-center gap-1.5' },
           h('p', { className: 'font-semibold text-sm text-stone-800 truncate' }, normalizeName(appt.customer_name)),
-          appt.is_first_booking && h('span', { className: 'text-[8px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0' }, t('admin.client_new'))
+          appt.is_first_booking && h('span', { className: 'text-[8px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0' }, t('admin.client_new')),
+          appt.allow_overlap && h('span', { className: 'text-[8px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0', title: t('admin.overlap_badge') }, '\u21C4')
         ),
         h('div', { className: 'flex items-center gap-1.5 text-xs text-stone-500' },
           h(StatusPill, { status: appt.status }),
@@ -1258,6 +1267,40 @@ function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId
     return appointments.filter(a => !hiddenIds.has(a.id))
   }, [appointments])
 
+  // Ancho medido del área de citas (para repartir columnas lado a lado)
+  const [gridWidth, setGridWidth] = useState(0)
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const update = () => setGridWidth(el.clientWidth)
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [date])
+
+  // Agrupar citas que solapan en el tiempo → cada grupo se reparte lado a lado
+  const overlapLayout = React.useMemo(() => {
+    const sorted = [...visibleAppointments].sort((x, y) => new Date(x.start_time) - new Date(y.start_time))
+    const layout = {}
+    let cluster = []
+    let clusterEnd = -Infinity
+    const flush = () => {
+      const n = cluster.length
+      cluster.forEach((a, i) => { layout[a.id] = { col: i, cols: n } })
+      cluster = []
+      clusterEnd = -Infinity
+    }
+    for (const a of sorted) {
+      const s = new Date(a.start_time).getTime()
+      const e = new Date(a.end_time).getTime()
+      if (cluster.length && s >= clusterEnd) flush()
+      cluster.push(a)
+      clusterEnd = Math.max(clusterEnd, e)
+    }
+    if (cluster.length) flush()
+    return layout
+  }, [visibleAppointments])
+
   // Build hour slots array
   const hours = []
   for (let hour = BUSINESS_START; hour < BUSINESS_END; hour++) {
@@ -1406,21 +1449,37 @@ function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId
           // Layout compact (≤COMPACT_THRESHOLD: una línea) vs normal (dos líneas)
           const isCompact = height <= COMPACT_THRESHOLD
 
+          // Lado a lado: citas convividas se reparten el ancho en columnas
+          const lay = overlapLayout[a.id] || { col: 0, cols: 1 }
+          const areaLeft = TIME_COL_WIDTH + 14
+          const areaWidth = gridWidth - areaLeft - 14
+          const cardStyle = (lay.cols > 1 && areaWidth > 60)
+            ? {
+                left: (areaLeft + lay.col * (areaWidth / lay.cols)) + 'px',
+                width: (areaWidth / lay.cols - 2) + 'px',
+                top: (top + APPT_GAP) + 'px',
+                height: (height - APPT_GAP * 2) + 'px',
+                background: cardBg,
+                borderLeft: `${APPT_BORDER_LEFT}px solid ${cardBorder}`,
+                boxShadow: isPast ? 'none' : '0 1.5px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.02)',
+                opacity: isPast ? 0.75 : 1,
+              }
+            : {
+                left: areaLeft + 'px',
+                right: '14px',
+                top: (top + APPT_GAP) + 'px',
+                height: (height - APPT_GAP * 2) + 'px',
+                background: cardBg,
+                borderLeft: `${APPT_BORDER_LEFT}px solid ${cardBorder}`,
+                boxShadow: isPast ? 'none' : '0 1.5px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.02)',
+                opacity: isPast ? 0.75 : 1,
+              }
+
           return h('div', {
             key: a.id,
             onClick: () => onAppointmentClick && onAppointmentClick(a),
             className: 'absolute rounded-lg cursor-pointer transition-all duration-150 hover:shadow-md active:scale-[0.98] overflow-hidden',
-            style: {
-              left: (TIME_COL_WIDTH + 14) + 'px',
-              right: '14px',
-              // APPT_GAP px arriba y abajo para separar claramente citas consecutivas
-              top: (top + APPT_GAP) + 'px',
-              height: (height - APPT_GAP * 2) + 'px',
-              background: cardBg,
-              borderLeft: `${APPT_BORDER_LEFT}px solid ${cardBorder}`,
-              boxShadow: isPast ? 'none' : '0 1.5px 3px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.02)',
-              opacity: isPast ? 0.75 : 1,
-            }
+            style: cardStyle
           },
             // ── Compact layout: hora-fin · nombre ● estado + botón ──
             isCompact
@@ -1458,7 +1517,8 @@ function DayView({ appointments, blocks = [], date, onComplete, onCancel, busyId
                   ),
                   h('div', { className: 'flex items-center gap-1.5 min-w-0' },
                     h('span', { className: 'text-sm font-bold truncate ' + (isPast ? 'text-stone-500' : 'text-stone-900') }, normalizeName(a.customer_name)),
-                    a.is_first_booking && !isPast && h('span', { className: 'text-[8px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0' }, t('admin.client_new'))
+                    a.is_first_booking && !isPast && h('span', { className: 'text-[8px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0' }, t('admin.client_new')),
+                    a.allow_overlap && h('span', { className: 'text-[8px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full uppercase tracking-wider shrink-0', title: t('admin.overlap_badge') }, '\u21C4')
                   ),
                   h('div', { className: 'flex items-center gap-1.5 text-[10px]' },
                     h('span', { className: 'text-stone-500 truncate' },
@@ -1670,11 +1730,14 @@ function CreateBookingModal({ services, editAppt, onClose, onSuccess }) {
   const [isNewClient, setIsNewClient] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  const [overlapInfo, setOverlapInfo] = useState(null) // tramo ocupado pendiente de confirmar
+  const [overlapConfirmed, setOverlapConfirmed] = useState(editAppt ? !!editAppt.allow_overlap : false)
 
   useEffect(() => {
     if (step !== 'slot' || !selService) return
     setLoadingSlots(true); setError(null); setSelSlot(null)
-    getAvailableSlots(selService.id, date)
+    setOverlapInfo(null)
+    getAdminSlots(date, selService.id, editAppt ? editAppt.id : null)
       .then(d => setSlots(d.slots || []))
       .catch(e => setError(e.message))
       .finally(() => setLoadingSlots(false))
@@ -1690,6 +1753,7 @@ function CreateBookingModal({ services, editAppt, onClose, onSuccess }) {
           customer_phone: phone,
           customer_email: email || null,
           start_time: selSlot,
+          allow_overlap: overlapConfirmed,
         })
       } else {
         await adminCreateBooking({
@@ -1699,6 +1763,7 @@ function CreateBookingModal({ services, editAppt, onClose, onSuccess }) {
           customer_email: email || null,
           start_time: selSlot,
           is_first_time: isNewClient,
+          allow_overlap: overlapConfirmed,
         })
       }
       onSuccess()
@@ -1772,21 +1837,53 @@ function CreateBookingModal({ services, editAppt, onClose, onSuccess }) {
                 slots.map(s => {
                   const mins = Number(selService?.duration_minutes)
                   const hasEnd = Number.isFinite(mins) && mins > 0
-                  const endLabel = hasEnd ? fmtTime(slotEndISO(s, mins)) : null
+                  const endLabel = hasEnd ? fmtTime(slotEndISO(s.time, mins)) : null
+                  const isSel = selSlot === s.time
+                  const selBusy = isSel && overlapConfirmed
                   return h('button', {
-                    key: s, onClick: () => setSelSlot(s),
-                    'aria-label': hasEnd ? t('template.slot_range', fmtTime(s), endLabel) : fmtTime(s),
-                    'aria-pressed': selSlot === s,
+                    key: s.time,
+                    onClick: () => {
+                      if (s.busy) {
+                        setSelSlot(null); setOverlapConfirmed(false)
+                        setOverlapInfo({ slot: s.time, occupant: s.occupant })
+                      } else {
+                        setSelSlot(s.time); setOverlapConfirmed(false); setOverlapInfo(null)
+                      }
+                    },
+                    'aria-label': hasEnd ? t('template.slot_range', fmtTime(s.time), endLabel) : fmtTime(s.time),
+                    'aria-pressed': isSel,
                     className: 'py-2.5 rounded-2xl text-sm transition active:scale-[0.98] cursor-pointer ' +
-                      (selSlot === s
-                        ? 'bg-propio-500 hover:bg-propio-600 text-white shadow-md'
-                        : 'bg-white border border-stone-200 text-stone-700 hover:border-propio-300')
+                      (selBusy
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md'
+                        : isSel
+                          ? 'bg-propio-500 hover:bg-propio-600 text-white shadow-md'
+                          : s.busy
+                            ? 'bg-red-50 border border-red-300 text-red-400 hover:border-red-400'
+                            : 'bg-white border border-stone-200 text-stone-700 hover:border-propio-300')
                   },
-                    h('span', { className: 'block font-bold leading-tight' }, fmtTime(s)),
+                    h('span', { className: 'block font-bold leading-tight' + (s.busy && !isSel ? ' line-through' : '') }, fmtTime(s.time)),
                     endLabel && h('span', { className: 'block text-[10px] font-medium opacity-75 leading-tight mt-0.5' }, '\u2192 ' + endLabel)
                   )
                 })
               ),
+        // Aviso de tramo ocupado: pedir confirmación para convivir
+        overlapInfo && h('div', { className: 'mt-3 bg-amber-50 border border-amber-300 rounded-2xl p-3' },
+          h('p', { className: 'text-xs font-bold text-amber-800' },
+            '\u26A0 ' + t('admin.overlap_confirm', fmtTime(overlapInfo.slot), overlapInfo.occupant || '')),
+          h('div', { className: 'flex gap-2 mt-2' },
+            h('button', {
+              onClick: () => {
+                setSelSlot(overlapInfo.slot); setOverlapConfirmed(true)
+                const info = overlapInfo; setOverlapInfo(null)
+              },
+              className: 'flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold active:scale-[0.98] transition cursor-pointer'
+            }, t('admin.overlap_yes')),
+            h('button', {
+              onClick: () => setOverlapInfo(null),
+              className: 'flex-1 py-2 rounded-xl bg-white border border-stone-200 text-stone-600 text-xs font-bold active:scale-[0.98] transition cursor-pointer'
+            }, t('admin.overlap_no'))
+          )
+        ),
         selSlot && h('button', {
           onClick: () => setStep('form'),
           disabled: slots.length === 0,
