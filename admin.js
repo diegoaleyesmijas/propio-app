@@ -4465,7 +4465,7 @@ function ServicesView({ token, onToast }) {
     services.length === 0
       ? h(EmptyState, { title: t('settings.services_empty'), sub: t('settings.services_empty_sub') })
       : h('div', { className: 'space-y-2' },
-          services.map((s, idx) => h('div', { key: s.id, className: 'bg-white rounded-xl border border-stone-200 p-3 flex items-center gap-3' },
+          services.map((s, idx) => h('div', { key: s.id, className: 'bg-white rounded-xl border border-stone-200 p-3 flex items-center gap-2' },
             // Reorder: arrows + go-to-position input
             h('div', { className: 'flex items-center gap-1 shrink-0' },
               h('div', { className: 'flex flex-col gap-0.5' },
@@ -4500,29 +4500,33 @@ function ServicesView({ token, onToast }) {
             ),
             // Color indicator
             h('div', {
-              className: 'w-4 h-4 rounded-full shrink-0',
+              className: 'w-3.5 h-3.5 rounded-full shrink-0',
               style: { backgroundColor: s.hex_color || '#CBD5E1' }
             }),
-            // Service info
+            // Service info (protagonista)
             h('div', { className: 'flex-1 min-w-0' },
-              h('p', { className: 'font-bold text-sm truncate' }, s.name),
+              h('p', { className: 'font-bold text-sm truncate ' + (s.active ? 'text-stone-900' : 'text-stone-400 line-through') }, s.name),
               h('p', { className: 'text-xs text-stone-400' },
                 s.price.toFixed(2) + '€ · ' + s.duration_minutes + 'min' + (s.active ? '' : ' · ' + t('settings.service_inactive'))
               )
             ),
-            // Active toggle
+            // Active toggle (icon): ✓ green / ✗ red
             h('button', {
               onClick: () => handleToggleActive(s),
-              className: 'text-[10px] font-bold py-1.5 px-2.5 rounded-lg transition cursor-pointer active:scale-[0.98] ' +
+              'aria-label': t(s.active ? 'settings.service_deactivate' : 'settings.service_activate'),
+              title: t(s.active ? 'settings.service_deactivate' : 'settings.service_activate'),
+              className: 'w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 transition active:scale-[0.98] cursor-pointer ' +
                 (s.active
                   ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                  : 'bg-stone-100 text-stone-400 hover:bg-stone-200')
-            }, s.active ? t('settings.service_active') : t('settings.service_inactive')),
-            // Edit button
+                  : 'bg-red-50 text-red-500 hover:bg-red-100')
+            }, s.active ? '\u2713' : '\u2717'),
+            // Edit (pencil icon)
             h('button', {
               onClick: () => openEdit(s),
-              className: 'text-[10px] font-bold py-1.5 px-2.5 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200 transition cursor-pointer active:scale-[0.98]'
-            }, t('settings.edit_service'))
+              'aria-label': t('settings.edit_service'),
+              title: t('settings.edit_service'),
+              className: 'w-8 h-8 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200 flex items-center justify-center text-sm shrink-0 transition active:scale-[0.98] cursor-pointer'
+            }, '\u270E')
           ))
         ),
 
