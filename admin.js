@@ -4424,6 +4424,24 @@ function ServicesView({ token, onToast }) {
     }
   }
 
+  // Ir a posición: mover el servicio de idx al puesto target (1-based)
+  const moveToPosition = async (idx, rawTarget) => {
+    let pos = parseInt(rawTarget, 10)
+    if (!Number.isFinite(pos)) return
+    pos = Math.min(Math.max(pos, 1), services.length)
+    if (pos === idx + 1) return
+    const arr = [...services]
+    const item = arr.splice(idx, 1)[0]
+    arr.splice(pos - 1, 0, item)
+    setServices(arr)
+    try {
+      await reorderServices(token, arr.map(s => s.id))
+    } catch (e) {
+      setFeedback({ type: 'error', text: e.message })
+      loadServices()
+    }
+  }
+
   if (loading) return h(LoadingSkeleton)
 
   return h('div', null,
@@ -4448,22 +4466,37 @@ function ServicesView({ token, onToast }) {
       ? h(EmptyState, { title: t('settings.services_empty'), sub: t('settings.services_empty_sub') })
       : h('div', { className: 'space-y-2' },
           services.map((s, idx) => h('div', { key: s.id, className: 'bg-white rounded-xl border border-stone-200 p-3 flex items-center gap-3' },
-            // Reorder buttons
-            h('div', { className: 'flex flex-col gap-0.5 shrink-0' },
-              h('button', {
-                onClick: () => handleMove(idx, -1),
-                disabled: idx === 0,
-                'aria-label': t('settings.move_up'),
-                title: t('settings.move_up'),
-                className: 'w-6 h-5 rounded-md bg-stone-50 text-stone-500 text-[10px] flex items-center justify-center transition active:scale-[0.98] cursor-pointer hover:bg-stone-200 disabled:opacity-30 disabled:cursor-default'
-              }, '\u25B2'),
-              h('button', {
-                onClick: () => handleMove(idx, 1),
-                disabled: idx === services.length - 1,
-                'aria-label': t('settings.move_down'),
-                title: t('settings.move_down'),
-                className: 'w-6 h-5 rounded-md bg-stone-50 text-stone-500 text-[10px] flex items-center justify-center transition active:scale-[0.98] cursor-pointer hover:bg-stone-200 disabled:opacity-30 disabled:cursor-default'
-              }, '\u25BC')
+            // Reorder: arrows + go-to-position input
+            h('div', { className: 'flex items-center gap-1 shrink-0' },
+              h('div', { className: 'flex flex-col gap-0.5' },
+                h('button', {
+                  onClick: () => handleMove(idx, -1),
+                  disabled: idx === 0,
+                  'aria-label': t('settings.move_up'),
+                  title: t('settings.move_up'),
+                  className: 'w-6 h-5 rounded-md bg-stone-50 text-stone-500 text-[10px] flex items-center justify-center transition active:scale-[0.98] cursor-pointer hover:bg-stone-200 disabled:opacity-30 disabled:cursor-default'
+                }, '\u25B2'),
+                h('button', {
+                  onClick: () => handleMove(idx, 1),
+                  disabled: idx === services.length - 1,
+                  'aria-label': t('settings.move_down'),
+                  title: t('settings.move_down'),
+                  className: 'w-6 h-5 rounded-md bg-stone-50 text-stone-500 text-[10px] flex items-center justify-center transition active:scale-[0.98] cursor-pointer hover:bg-stone-200 disabled:opacity-30 disabled:cursor-default'
+                }, '\u25BC')
+              ),
+              h('input', {
+                type: 'number',
+                inputMode: 'numeric',
+                min: 1,
+                max: services.length,
+                defaultValue: idx + 1,
+                key: 'pos-' + s.id + '-' + idx,
+                'aria-label': t('settings.move_to_position'),
+                title: t('settings.move_to_position'),
+                onBlur: (e) => moveToPosition(idx, e.target.value),
+                onKeyDown: (e) => { if (e.key === 'Enter') e.target.blur() },
+                className: 'w-10 px-0.5 py-1 rounded-md bg-stone-50 border border-stone-200 text-[10px] text-center text-stone-600 focus:outline-none focus:border-propio-500'
+              })
             ),
             // Color indicator
             h('div', {
