@@ -386,6 +386,18 @@ async function updateService(token, id, payload) {
   return data
 }
 
+async function reorderServices(token, ids) {
+  const r = await fetch(`${API}/admin/services/reorder`, {
+    method: 'POST',
+    headers: _adminHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ order: ids })
+  })
+  if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
+  const data = await r.json()
+  if (!r.ok) throw new Error(data.detail || 'Error reordering services')
+  return data
+}
+
 async function deleteService(token, id) {
   const r = await fetch(`${API}/admin/services/${id}`, { method: 'DELETE', headers: _adminHeaders() })
   if (r.status === 401) { _handleUnauthorized(); throw new Error('Unauthorized') }
@@ -4397,6 +4409,21 @@ function ServicesView({ token, onToast }) {
     catch (e) { setFeedback({ type: 'error', text: e.message }) }
   }
 
+  // Reordenar: swap optimista + persistir; revertir si falla
+  const handleMove = async (idx, dir) => {
+    const j = idx + dir
+    if (j < 0 || j >= services.length) return
+    const arr = [...services]
+    const tmp = arr[idx]; arr[idx] = arr[j]; arr[j] = tmp
+    setServices(arr)
+    try {
+      await reorderServices(token, arr.map(s => s.id))
+    } catch (e) {
+      setFeedback({ type: 'error', text: e.message })
+      loadServices()
+    }
+  }
+
   if (loading) return h(LoadingSkeleton)
 
   return h('div', null,
@@ -4420,7 +4447,24 @@ function ServicesView({ token, onToast }) {
     services.length === 0
       ? h(EmptyState, { title: t('settings.services_empty'), sub: t('settings.services_empty_sub') })
       : h('div', { className: 'space-y-2' },
-          services.map(s => h('div', { key: s.id, className: 'bg-white rounded-xl border border-stone-200 p-3 flex items-center gap-3' },
+          services.map((s, idx) => h('div', { key: s.id, className: 'bg-white rounded-xl border border-stone-200 p-3 flex items-center gap-3' },
+            // Reorder buttons
+            h('div', { className: 'flex flex-col gap-0.5 shrink-0' },
+              h('button', {
+                onClick: () => handleMove(idx, -1),
+                disabled: idx === 0,
+                'aria-label': t('settings.move_up'),
+                title: t('settings.move_up'),
+                className: 'w-6 h-5 rounded-md bg-stone-50 text-stone-500 text-[10px] flex items-center justify-center transition active:scale-[0.98] cursor-pointer hover:bg-stone-200 disabled:opacity-30 disabled:cursor-default'
+              }, '\u25B2'),
+              h('button', {
+                onClick: () => handleMove(idx, 1),
+                disabled: idx === services.length - 1,
+                'aria-label': t('settings.move_down'),
+                title: t('settings.move_down'),
+                className: 'w-6 h-5 rounded-md bg-stone-50 text-stone-500 text-[10px] flex items-center justify-center transition active:scale-[0.98] cursor-pointer hover:bg-stone-200 disabled:opacity-30 disabled:cursor-default'
+              }, '\u25BC')
+            ),
             // Color indicator
             h('div', {
               className: 'w-4 h-4 rounded-full shrink-0',

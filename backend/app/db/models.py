@@ -16,6 +16,7 @@ class Service(SQLModel, table=True):
     active: bool = Field(default=True)
     hex_color: Optional[str] = Field(default=None, max_length=7)
     description: Optional[str] = Field(default=None)
+    sort_order: Optional[int] = Field(default=None)  # orden personalizado (barbero)
     
     appointments: List["Appointment"] = Relationship(back_populates="service")
 

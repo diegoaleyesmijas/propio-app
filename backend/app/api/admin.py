@@ -1546,7 +1546,7 @@ def admin_list_services(db: Session = Depends(get_session)):
         text("""
             SELECT id, name, price, duration_minutes, slot_interval_minutes,
                    hex_color, description, active
-            FROM services ORDER BY id
+            FROM services ORDER BY sort_order NULLS LAST, id
         """)
     ).fetchall()
     return [
@@ -1576,8 +1576,9 @@ def admin_create_service(payload: ServiceCreate, db: Session = Depends(get_sessi
     result = db.execute(
         text("""
             INSERT INTO services (name, price, duration_minutes, slot_interval_minutes,
-                                  hex_color, description, active)
-            VALUES (:name, :price, :duration, :slot_interval, :color, :desc, :active)
+                                  hex_color, description, active, sort_order)
+            VALUES (:name, :price, :duration, :slot_interval, :color, :desc, :active,
+                    COALESCE((SELECT MAX(sort_order) FROM services), 0) + 1)
             RETURNING id
         """),
         {
@@ -1592,6 +1593,31 @@ def admin_create_service(payload: ServiceCreate, db: Session = Depends(get_sessi
     ).first()
     db.commit()
     return {"ok": True, "id": result[0]}
+
+
+@router.post("/admin/services/reorder")
+def admin_reorder_services(payload: dict, db: Session = Depends(get_session)):
+    """Persist the barber's custom service order.
+    Body: {"order": [service_id, ...]} — position in list = display order."""
+    order = payload.get("order")
+    if not isinstance(order, list) or not order:
+        raise HTTPException(status_code=400, detail="order must be a non-empty list of service ids")
+    if not all(isinstance(i, int) for i in order):
+        raise HTTPException(status_code=400, detail="order must contain only integer ids")
+    if len(set(order)) != len(order):
+        raise HTTPException(status_code=400, detail="duplicate ids in order")
+    rows = db.execute(text("SELECT id FROM services")).fetchall()
+    existing = {r[0] for r in rows}
+    missing = [i for i in order if i not in existing]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"unknown service ids: {missing}")
+    for pos, sid in enumerate(order):
+        db.execute(
+            text("UPDATE services SET sort_order = :pos WHERE id = :sid"),
+            {"pos": pos + 1, "sid": sid}
+        )
+    db.commit()
+    return {"ok": True, "count": len(order)}
 
 
 @router.patch("/admin/services/{service_id}")

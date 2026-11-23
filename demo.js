@@ -471,9 +471,10 @@ function App() {
         return 0
       })
     }
-    // Build sorted array by CATEGORY_ORDER
+    // Build array in the barber's custom order: group order = order of first
+    // appearance in services (which comes sort_order-ordered from the API)
     const sorted = []
-    for (const color of CATEGORY_ORDER) {
+    for (const color of Object.keys(groups)) {
       if (groups[color] && groups[color].length > 0) {
         sorted.push({ color, label: CATEGORY_LABEL[color] || 'Otros', services: groups[color] })
       }

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Header, Request, Response
 from sqlmodel import Session, select
 from sqlalchemy import text
 from datetime import datetime, timezone
@@ -20,14 +20,20 @@ router = APIRouter()
 
 
 @router.get("/services", response_model=List[ServiceOut])
-def list_services(db: Session = Depends(get_session)):
-    services = db.exec(select(Service).where(Service.active == True)).all()  # noqa: E712
+def list_services(response: Response, db: Session = Depends(get_session)):
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    services = db.exec(
+        select(Service)
+        .where(Service.active == True)  # noqa: E712
+        .order_by(Service.sort_order.asc().nulls_last(), Service.id.asc())
+    ).all()
     return services
 
 
 @router.get("/settings")
-def get_public_settings():
+def get_public_settings(response: Response):
     """Public settings for the booking page (reviews badge, WhatsApp)."""
+    response.headers["Cache-Control"] = "no-store, max-age=0"
     return {
         "google_place_id": settings.GOOGLE_PLACE_ID or None,
         "google_rating": settings.GOOGLE_RATING or None,
@@ -37,7 +43,8 @@ def get_public_settings():
 
 
 @router.get("/available-slots")
-def available_slots(service_id: int, date: str, db: Session = Depends(get_session)):
+def available_slots(service_id: int, date: str, response: Response, db: Session = Depends(get_session)):
+    response.headers["Cache-Control"] = "no-store, max-age=0"
     from datetime import date as _date
     try:
         target = _date.fromisoformat(date)
