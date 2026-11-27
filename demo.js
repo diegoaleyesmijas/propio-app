@@ -142,7 +142,7 @@ function Header({ step, onBack }) {
         : React.createElement('img', {
             src: '/logo-web.png',
             alt: t('brand'),
-            className: 'h-12 w-auto object-contain'
+            className: 'h-12 w-auto object-contain rounded-lg'
           }),
       React.createElement('div', { className: 'flex-1 min-w-0 flex items-center gap-1.5' },
         React.createElement('h1', { className: 'font-bold text-base leading-tight truncate' }, t('brand')),
